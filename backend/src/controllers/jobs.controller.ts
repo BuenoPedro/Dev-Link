@@ -194,11 +194,34 @@ export async function cancelJobApplication(req: AuthedRequest, res: Response) {
 export async function getJob(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const jobId = BigInt(id);
+
+    // 1. Tenta identificar o usuário logado pelo token (opcional)
+    // Isso permite saber se ele já aplicou, mesmo em uma rota pública
+    let currentUserId: bigint | null = null;
+    const authHeader = req.headers.authorization;
     
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7);
+        const payload = jwt.verify(token, JWT_SECRET) as any;
+        currentUserId = BigInt(payload.sub);
+      } catch {
+        // Token inválido ou expirado, segue como visitante
+      }
+    }
+
+    // 2. Busca a vaga e verifica se existe aplicação deste usuário específico
     const job = await prisma.job.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: jobId },
       include: {
-        company: true
+        company: {
+          select: { id: true, name: true, logoUrl: true, ownerUserId: true }
+        },
+        applications: currentUserId ? {
+          where: { userId: currentUserId },
+          select: { id: true }
+        } : false
       }
     });
 
@@ -206,7 +229,13 @@ export async function getJob(req: Request, res: Response) {
       return res.status(404).json({ message: 'Vaga não encontrada' });
     }
 
-    return res.json({ job });
+    const jobWithStatus = {
+      ...job,
+      hasApplied: job.applications && job.applications.length > 0,
+      applications: undefined 
+    };
+
+    return res.json({ job: jobWithStatus });
   } catch (error) {
     console.error('Erro ao buscar vaga:', error);
     return res.status(500).json({ message: 'Erro interno do servidor' });

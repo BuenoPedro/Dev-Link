@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import Sidebar from '../components/Sidebar';
+import SidebarUser from '../components/SidebarUser';
 // --- INÍCIO: MOCKS E ÍCONES (Para funcionar no preview sem dependências) ---
 const FiBriefcase = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>;
 const FiMapPin = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>;
@@ -121,7 +122,11 @@ export default function JobsView() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6 px-4">
-      <div className="hidden lg:block lg:col-span-1"></div>
+      <aside className="hidden lg:block lg:col-span-1">
+         <div className="sticky top-24">
+            <SidebarUser />
+         </div>
+      </aside>
 
       <div className="col-span-1 lg:col-span-2 space-y-6">
         
@@ -189,12 +194,20 @@ export default function JobsView() {
               <div className="mt-4 text-xs text-gray-400 flex items-center gap-1">
                  <FiClock className="w-3 h-3"/> Publicada em {new Date(job.createdAt).toLocaleDateString('pt-BR')}
               </div>
-
+              {me.role==='COMPANY_ADMIN' ? (
+                    <div className='mt-6'>
+                    <Link 
+                      to={`/jobs/${job.id}`}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      Ver Detalhes
+                    </Link>
+                    </div>
+              ) : (
               <div className="mt-5 flex flex-col items-start gap-2">
-                
                 {/* Área de Ação */}
                 <div className="w-full sm:w-auto flex flex-wrap items-center gap-3">
-                    {job.hasApplied ? (
+                    {me.role==='COMPANY_ADMIN' || job.hasApplied ? (
                         // Se já aplicou
                         confirmingCancelId === job.id ? (
                             // Modo de Confirmação
@@ -261,6 +274,7 @@ export default function JobsView() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
         ))}
