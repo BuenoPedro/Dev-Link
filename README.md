@@ -29,7 +29,7 @@
 - Pacotes premiums
 - Vagas em alta
 - Denuncia de usuário ou empresas
-- Fazer posts no feed
+- Fazer posts no feed ✅
 
 
 ## Pedro

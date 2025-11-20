@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
 
 export const usePosts = () => {
@@ -11,7 +11,8 @@ export const usePosts = () => {
   const loadPosts = useCallback(
     async (showLoading = true) => {
       try {
-        if (showLoading && (!hasLoadedOnce || posts.length === 0)) {
+        // Só mostra loading na primeira vez ou se não houver posts
+        if (showLoading && !hasLoadedOnce) {
           setLoading(true);
         }
 
@@ -27,38 +28,34 @@ export const usePosts = () => {
         setError(error.message);
         console.error('Erro ao carregar posts:', error);
       } finally {
-        if (showLoading && (!hasLoadedOnce || posts.length === 0)) {
+        if (showLoading && !hasLoadedOnce) {
           setLoading(false);
         }
       }
     },
-    [hasLoadedOnce, posts.length]
+    [hasLoadedOnce]
   );
 
   // Adicionar post (UI Otimística) - SEM sincronização automática
   const addPost = useCallback((post, isTemporary = false, replaceId = null) => {
     setPosts((prevPosts) => {
-      if (post === null && replaceId) {
-        // Remover post temporário (erro)
-        return prevPosts.filter((p) => p.id !== replaceId);
-      }
-
+      // Se é pra substituir um post temporário
       if (replaceId) {
-        // Substituir post temporário pelo real
-        return prevPosts.map((p) => (p.id === replaceId ? { ...post, isTemporary: false } : p));
+        const index = prevPosts.findIndex((p) => p.id === replaceId);
+        if (index !== -1) {
+          const newPosts = [...prevPosts];
+          newPosts[index] = post;
+          return newPosts;
+        }
       }
 
-      if (isTemporary) {
-        // Adicionar post temporário no início
-        return [{ ...post, isTemporary: true }, ...prevPosts];
+      // Se já existe, não adiciona
+      if (prevPosts.some((p) => p.id === post.id)) {
+        return prevPosts;
       }
 
-      // Verificar se já existe (evitar duplicatas)
-      const exists = prevPosts.find((p) => p.id === post.id);
-      if (exists && !exists.isTemporary) return prevPosts;
-
-      // Adicionar post real no início
-      return [{ ...post, isTemporary: false }, ...prevPosts.filter((p) => p.id !== post.id)];
+      // Adiciona no início
+      return [post, ...prevPosts];
     });
   }, []);
 
@@ -79,8 +76,11 @@ export const usePosts = () => {
         if (post.id === postId) {
           return {
             ...post,
-            isLiked: liked,
-            likesCount: liked ? post.likesCount + 1 : post.likesCount - 1,
+            liked,
+            _count: {
+              ...post._count,
+              likes: liked ? post._count.likes + 1 : Math.max(0, post._count.likes - 1),
+            },
           };
         }
         return post;
@@ -88,26 +88,34 @@ export const usePosts = () => {
     );
   }, []);
 
-  // Escutar eventos da API - SEM reloads automáticos
+  // Escutar eventos da API - COM atualização de cache em background
   useEffect(() => {
     const handlePostCreated = (post) => {
-      console.log('📡 Post criado via evento (ignorado - UI otimística ativa)');
-      // Não fazer nada - a UI otimística já cuidou
+      console.log('📝 Evento: Post criado', post);
+      addPost(post);
     };
 
     const handlePostDeleted = (postId) => {
-      console.log('📡 Post deletado via evento:', postId);
+      console.log('🗑️ Evento: Post deletado', postId);
       removePost(postId);
     };
 
     const handlePostLiked = ({ postId, liked }) => {
-      console.log('📡 Post curtido via evento:', { postId, liked });
+      console.log('❤️ Evento: Post curtido', postId, liked);
       updateLike(postId, liked);
     };
 
     const handlePostUpdated = (post) => {
-      console.log('📡 Post atualizado via evento:', post.id);
+      console.log('✏️ Evento: Post atualizado', post);
       updatePost(post);
+    };
+
+    // NOVO: Escutar atualizações de cache em background
+    const handleCacheUpdated = ({ path, data }) => {
+      if (path === '/api/posts' && data?.posts) {
+        console.log('🔄 Cache atualizado em background, sincronizando posts');
+        setPosts(data.posts);
+      }
     };
 
     // Registrar eventos
@@ -115,6 +123,7 @@ export const usePosts = () => {
     api.on('postDeleted', handlePostDeleted);
     api.on('postLiked', handlePostLiked);
     api.on('postUpdated', handlePostUpdated);
+    api.on('cacheUpdated', handleCacheUpdated); // NOVO
 
     // Cleanup
     return () => {
@@ -122,8 +131,9 @@ export const usePosts = () => {
       api.off('postDeleted', handlePostDeleted);
       api.off('postLiked', handlePostLiked);
       api.off('postUpdated', handlePostUpdated);
+      api.off('cacheUpdated', handleCacheUpdated); // NOVO
     };
-  }, [removePost, updateLike, updatePost]);
+  }, [removePost, updateLike, updatePost, addPost]);
 
   // Carregar posts apenas na inicialização
   useEffect(() => {
@@ -143,9 +153,8 @@ export const usePosts = () => {
     refetch: () => loadPosts(true),
     // Método para sincronização manual (se necessário)
     forceSync: () => {
-      console.log('🔄 Sincronização forçada...');
       api.forceInvalidateCache();
-      return loadPosts(false);
+      loadPosts(true);
     },
   };
 };
