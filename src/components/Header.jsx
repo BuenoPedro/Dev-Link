@@ -78,6 +78,13 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
     setIsMobileMenuOpen(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token'); 
+    
+    sessionStorage.clear();
+    window.location.href = '/';
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 bg-sky-500 shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -102,6 +109,9 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
             </Link>
             <button onClick={handleProfileClick} className="text-white hover:text-sky-200 transition-colors" title="Perfil">
               <FiUser size={20} />
+            </button>
+            <button onClick={handleLogout} className="text-white hover:text-sky-200 transition-colors" title="Logout">
+              <FiX size={20} />
             </button>
           </nav>
 

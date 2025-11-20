@@ -48,13 +48,13 @@ export default function LoginModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
     setLoading(true);
-
+    let r
     try {
       if (tab === 'login') {
-        const r = await api.post('/api/auth/login', { email, password });
+        r = await api.post('/api/auth/login', { email, password });
         localStorage.setItem('token', r.token);
       } else if (tab === 'register') {
-        const r = await api.post('/api/auth/register', {
+        r = await api.post('/api/auth/register', {
           email,
           password,
           confirmPassword,
@@ -74,12 +74,19 @@ export default function LoginModal({ isOpen, onClose }) {
           password: company.password,
           confirmPassword: company.confirmPassword,
         };
-        const r = await api.post('/api/companies/register', payload);
+        r = await api.post('/api/companies/register', payload);
         localStorage.setItem('token', r.token);
       }
-
+      console.log("Login bem sucedido. Role:", r.user?.role);
       onClose?.();
-      window.location.href = '/user';
+      if (r.user?.role === 'COMPANY_ADMIN') {
+         window.location.href = '/company';
+      } else if  (r.user?.role === 'ADMIN') {
+         window.location.href = '/admin';
+      }
+      else {
+         window.location.href = '/user';
+      }
     } catch (err) {
       setError(err?.message || 'Falha na autenticação');
     } finally {

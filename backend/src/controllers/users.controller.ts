@@ -67,6 +67,7 @@ export async function suggestedPeople(req: AuthedRequest, res: Response) {
       const randomUsers = await prisma.user.findMany({
         where: {
           id: { not: userId },
+          role: 'USER',
           isActive: true,
         },
         include: {
