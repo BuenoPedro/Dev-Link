@@ -174,42 +174,42 @@ export default function AdminPanel() {
         <section className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm grid gap-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Remoções</h2>
 
-          <div className="grid gap-3 sm:grid-cols-3 items-center">
+          <div className="grid gap-3 sm:grid-cols-4 items-center">
             <input
               type="text"
-              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50 sm:col-span-3"
               placeholder="ID do usuário"
               value={delUserId}
               onChange={(e) => setDelUserId(e.target.value)}
             />
-            <button onClick={handleDeleteUser} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 sm:col-span-2">
-              <FiTrash2 /> Remover usuário
+            <button onClick={handleDeleteUser} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 whitespace-nowrap">
+              <FiTrash2 /> Remover
             </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 items-center">
+          <div className="grid gap-3 sm:grid-cols-4 items-center">
             <input
               type="text"
-              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50 sm:col-span-3"
               placeholder="ID da empresa"
               value={delCompanyId}
               onChange={(e) => setDelCompanyId(e.target.value)}
             />
-            <button onClick={handleDeleteCompany} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 sm:col-span-2">
-              <FiTrash2 /> Remover empresa
+            <button onClick={handleDeleteCompany} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 whitespace-nowrap">
+              <FiTrash2 /> Remover
             </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 items-center">
+          <div className="grid gap-3 sm:grid-cols-4 items-center">
             <input
               type="text"
-              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500/50 sm:col-span-3"
               placeholder="ID do post"
               value={delPostId}
               onChange={(e) => setDelPostId(e.target.value)}
             />
-            <button onClick={handleDeletePost} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 sm:col-span-2">
-              <FiTrash2 /> Remover post
+            <button onClick={handleDeletePost} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 whitespace-nowrap">
+              <FiTrash2 /> Remover
             </button>
           </div>
         </section>
