@@ -228,6 +228,7 @@ export default function UserProfile() {
   }, [debouncedId, lastLoadTime]);
 
   const profile = me?.profile || {};
+  const isAdmin = me?.role === 'ADMIN';
 
   // -------- Posts functions
   const handlePostCreated = (newPost) => {
@@ -434,133 +435,149 @@ export default function UserProfile() {
             {profile.bio && <p className="mt-4 text-gray-700 dark:text-gray-200 whitespace-pre-line">{profile.bio}</p>}
           </div>
 
-          {/* Competências */}
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Competências {skills.length > 0 && `(${skills.length})`}</h2>
-              {isOwnProfile && (
-                <button
-                  onClick={() => {
-                    setTab('competencias');
-                    setOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <FiPlus /> Gerenciar
-                </button>
-              )}
+          {/* Bloco especial para ADMIN */}
+          {isAdmin && isOwnProfile && (
+            <div className="rounded-2xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-gray-900 p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Perfil de Administrador</h2>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">Este usuário é um administrador.</p>
+              <button
+                onClick={() => (window.location.href = '/admin')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors"
+              >
+                Ir para página de Admin
+              </button>
             </div>
+          )}
 
-            {skills?.length ? (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {skills
-                  .sort((a, b) => a.skill.name.localeCompare(b.skill.name))
-                  .map((s) => (
-                    <div key={s.skillId} className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-3 bg-gray-50 dark:bg-gray-800">
-                      <div className="text-gray-900 dark:text-gray-100 font-medium">{s.skill.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Proficiência: {s.proficiency}/5 {s.yearsExp ? `• ${s.yearsExp} ano(s)` : ''}
-                      </div>
-                      {/* Barra de proficiência visual */}
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
-                        <div className="bg-sky-600 h-1.5 rounded-full transition-all" style={{ width: `${(s.proficiency / 5) * 100}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50 dark:bg-gray-800">
-                <div className="w-12 h-12 mx-auto mb-3 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                  <FiPlus className="w-6 h-6 text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{isOwnProfile ? 'Adicione suas competências técnicas' : 'Nenhuma competência cadastrada'}</p>
+          {/* Competências (ocultas para ADMIN no próprio perfil) */}
+          {!isAdmin && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">Competências {skills.length > 0 && `(${skills.length})`}</h2>
                 {isOwnProfile && (
                   <button
                     onClick={() => {
                       setTab('competencias');
                       setOpen(true);
                     }}
-                    className="mt-2 text-sky-600 hover:text-sky-700 text-sm font-medium"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
                   >
-                    Adicionar primeira competência
+                    <FiPlus /> Gerenciar
                   </button>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Experiências */}
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Experiências {exps.length > 0 && `(${exps.length})`}</h2>
-              {isOwnProfile && (
-                <button
-                  onClick={() => {
-                    resetExpForm();
-                    setTab('experiencias');
-                    setOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <FiPlus /> Adicionar
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {exps.length ? (
-                exps.map((e) => (
-                  <div key={e.id} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                          <FiBriefcase className="text-sky-600" /> {e.title}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-300 font-medium">{e.company}</div>
+              {skills?.length ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {skills
+                    .sort((a, b) => a.skill.name.localeCompare(b.skill.name))
+                    .map((s) => (
+                      <div key={s.skillId} className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-3 bg-gray-50 dark:bg-gray-800">
+                        <div className="text-gray-900 dark:text-gray-100 font-medium">{s.skill.name}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {new Date(e.startDate).toLocaleDateString('pt-BR')} — {e.isCurrent ? 'Atual' : e.endDate ? new Date(e.endDate).toLocaleDateString('pt-BR') : '—'}
+                          Proficiência: {s.proficiency}/5 {s.yearsExp ? `• ${s.yearsExp} ano(s)` : ''}
                         </div>
-                        {e.description && <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-line">{e.description}</p>}
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
+                          <div className="bg-sky-600 h-1.5 rounded-full transition-all" style={{ width: `${(s.proficiency / 5) * 100}%` }}></div>
+                        </div>
                       </div>
-                      {/* Botões de edição só aparecem no próprio perfil */}
-                      {isOwnProfile && (
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                            onClick={() => editExp(e)}
-                          >
-                            Editar
-                          </button>
-                          <button className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white transition-colors" onClick={() => removeExp(e.id)}>
-                            <FiTrash2 />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
+                    ))}
+                </div>
               ) : (
                 <div className="text-center py-8 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50 dark:bg-gray-800">
                   <div className="w-12 h-12 mx-auto mb-3 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                    <FiBriefcase className="w-6 h-6 text-gray-400" />
+                    <FiPlus className="w-6 h-6 text-gray-400" />
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{isOwnProfile ? 'Adicione suas experiências profissionais' : 'Nenhuma experiência cadastrada'}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{isOwnProfile ? 'Adicione suas competências técnicas' : 'Nenhuma competência cadastrada'}</p>
                   {isOwnProfile && (
                     <button
                       onClick={() => {
-                        resetExpForm();
-                        setTab('experiencias');
+                        setTab('competencias');
                         setOpen(true);
                       }}
                       className="mt-2 text-sky-600 hover:text-sky-700 text-sm font-medium"
                     >
-                      Adicionar primeira experiência
+                      Adicionar primeira competência
                     </button>
                   )}
                 </div>
               )}
             </div>
-          </div>
+          )}
+
+          {/* Experiências (ocultas para ADMIN no próprio perfil) */}
+          {!isAdmin && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">Experiências {exps.length > 0 && `(${exps.length})`}</h2>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => {
+                      resetExpForm();
+                      setTab('experiencias');
+                      setOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <FiPlus /> Adicionar
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {exps.length ? (
+                  exps.map((e) => (
+                    <div key={e.id} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            <FiBriefcase className="text-sky-600" /> {e.title}
+                          </div>
+                          <div className="text-gray-600 dark:text-gray-300 font-medium">{e.company}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {new Date(e.startDate).toLocaleDateString('pt-BR')} — {e.isCurrent ? 'Atual' : e.endDate ? new Date(e.endDate).toLocaleDateString('pt-BR') : '—'}
+                          </div>
+                          {e.description && <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-line">{e.description}</p>}
+                        </div>
+                        {isOwnProfile && (
+                          <div className="flex gap-2 ml-4">
+                            <button
+                              className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                              onClick={() => editExp(e)}
+                            >
+                              Editar
+                            </button>
+                            <button className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white transition-colors" onClick={() => removeExp(e.id)}>
+                              <FiTrash2 />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50 dark:bg-gray-800">
+                    <div className="w-12 h-12 mx-auto mb-3 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                      <FiBriefcase className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{isOwnProfile ? 'Adicione suas experiências profissionais' : 'Nenhuma experiência cadastrada'}</p>
+                    {isOwnProfile && (
+                      <button
+                        onClick={() => {
+                          resetExpForm();
+                          setTab('experiencias');
+                          setOpen(true);
+                        }}
+                        className="mt-2 text-sky-600 hover:text-sky-700 text-sm font-medium"
+                      >
+                        Adicionar primeira experiência
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Publicações */}
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
