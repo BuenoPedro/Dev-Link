@@ -132,7 +132,7 @@ export async function applyJob(req: AuthedRequest, res: Response) {
 
         // Verifica Role
         if (req.user!.role !== 'USER') {
-            return res.status(403).json({ message: 'Apenas candidatos (USER) podem se aplicar para vagas.' });
+            return res.status(403).json({ message: 'Apenas usuários registrados como candidatos podem se aplicar para vagas.' });
         }
 
         // Verifica se vaga existe

@@ -12,6 +12,7 @@ import CompanyProfile from './pages/CompanyProfile';
 import Connections from './pages/Connections';
 import JobsView from './pages/JobsView';
 import JobsNew from './pages/JobsNew';
+import JobDetails from './pages/JobDetails';
 
 function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -88,6 +89,7 @@ function App() {
               <Route path="/news" element={<News />} />
               <Route path="/jobs" element={<JobsView />} />
               <Route path="/jobs/new" element={<JobsNew />} />
+              <Route path="/jobs/:id" element={<JobDetails />} />
 
               {/* Perfil do usuário logado */}
               <Route path="/user" element={<UserProfile />} />
