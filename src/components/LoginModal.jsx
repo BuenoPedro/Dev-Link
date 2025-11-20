@@ -48,13 +48,13 @@ export default function LoginModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    let response;
 
     try {
       if (tab === 'login') {
-        const r = await api.post('/api/auth/login', { email, password });
-        localStorage.setItem('token', r.token);
+        response = await api.post('/api/auth/login', { email, password });
       } else if (tab === 'register') {
-        const r = await api.post('/api/auth/register', {
+        response = await api.post('/api/auth/register', {
           email,
           password,
           confirmPassword,
@@ -62,7 +62,6 @@ export default function LoginModal({ isOpen, onClose }) {
           cpf,
           birthDate: birthDate || undefined,
         });
-        localStorage.setItem('token', r.token);
       } else {
         // company
         const payload = {
@@ -74,12 +73,19 @@ export default function LoginModal({ isOpen, onClose }) {
           password: company.password,
           confirmPassword: company.confirmPassword,
         };
-        const r = await api.post('/api/companies/register', payload);
-        localStorage.setItem('token', r.token);
+        response = await api.post('/api/companies/register', payload);
       }
 
+      // salvar token
+      if (response?.token) {
+        localStorage.setItem('token', response.token);
+      }
+
+      // redirecionar conforme role
+      const role = response?.user?.role;
+      const dest = role === 'ADMIN' ? '/admin' : '/user';
       onClose?.();
-      window.location.href = '/user';
+      window.location.href = dest;
     } catch (err) {
       setError(err?.message || 'Falha na autenticação');
     } finally {

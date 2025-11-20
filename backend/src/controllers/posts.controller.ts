@@ -417,12 +417,12 @@ export const deletePost = async (req: AuthedRequest, res: Response) => {
       return res.status(404).json({ message: 'Post não encontrado' });
     }
 
-    // Verificar se é o autor do post
-    if (post.authorType === 'USER' && post.authorId !== req.user!.id) {
+    // Verificar se é o autor do post (ADMIN pode tudo)
+    if (req.user?.role !== 'ADMIN' && post.authorType === 'USER' && post.authorId !== req.user!.id) {
       return res.status(403).json({ message: 'Você não tem permissão para deletar este post' });
     }
 
-    if (post.authorType === 'COMPANY') {
+    if (req.user?.role !== 'ADMIN' && post.authorType === 'COMPANY') {
       const company = await prisma.company.findFirst({
         where: {
           id: post.authorId,
@@ -471,8 +471,8 @@ export const deleteComment = async (req: AuthedRequest, res: Response) => {
       return res.status(404).json({ message: 'Comentário não encontrado' });
     }
 
-    // Verificar se é o autor do comentário
-    if (comment.userId !== req.user!.id) {
+    // Verificar se é o autor do comentário (ADMIN pode tudo)
+    if (req.user?.role !== 'ADMIN' && comment.userId !== req.user!.id) {
       return res.status(403).json({ message: 'Você não tem permissão para deletar este comentário' });
     }
 
