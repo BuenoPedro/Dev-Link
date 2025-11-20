@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  COMPANY_ADMIN
+  ADMIN
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum EmploymentType {
+  CLT
+  PJ
+  FREELANCE
+  INTERNSHIP
+  OTHER
+}
+
+enum Seniority {
+  JUNIOR
+  PLENO
+  SENIOR
+  LEAD
+  ANY
+}
+
+enum LocationType {
+  ONSITE
+  REMOTE
+  HYBRID
+}
+
+enum ApplicationStatus {
+  APPLIED
+  REVIEWING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ReportTarget {
+  USER
+  COMPANY
+  JOB_POST
+  COMMENT
+  POST
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  CLOSED
+}
+
+enum AuthorType {
+  USER
+  COMPANY
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile      UserProfile?
+  skills       UserSkill[]
+  requested    Connection[]     @relation("RequestedConnections")
+  received     Connection[]     @relation("ReceivedConnections")
+  companies    Company[]        @relation("CompanyOwners")
+  savedJobs    SavedJob[]
+  applications JobApplication[]
+  reports      Report[]         @relation("Reporter")
+  experiences  Experience[]
+  postLikes    PostLike[]
+  postComments PostComment[]
+}
+
+model UserProfile {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt    @unique
+  displayName String
+  cpf         String?   @unique
+  headline    String?
+  bio         String?   @db.Text
+  avatarUrl   String?   @db.VarChar(2048)
+  location    String?
+  websiteUrl  String?   @db.VarChar(2048)
+  githubUrl   String?   @db.VarChar(2048)
+  birthDate   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Experience {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt
+  company     String
+  title       String
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startDate])
+}
+
+model Skill {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users UserSkill[]
+}
+
+model UserSkill {
+  userId      BigInt
+  skillId     BigInt
+  proficiency Int    @default(3) // 1..5
+  yearsExp    Float?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+}
+
+model Connection {
+  id          BigInt           @id @default(autoincrement())
+  requesterId BigInt
+  addresseeId BigInt
+  status      ConnectionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  actedAt     DateTime?
+
+  requester User @relation("RequestedConnections", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("ReceivedConnections", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+}
+
+model Company {
+  id          BigInt   @id @default(autoincrement())
+  name        String
+  cnpj        String?  @unique
+  description String?
+  siteUrl     String?
+  logoUrl     String?
+  ownerUserId BigInt?
+  foundedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner User? @relation("CompanyOwners", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  jobs  Job[]
+}
+
+model Job {
+  id             BigInt         @id @default(autoincrement())
+  companyId      BigInt
+  title          String
+  description    String
+  employmentType EmploymentType @default(OTHER)
+  seniority      Seniority      @default(ANY)
+  locationType   LocationType   @default(REMOTE)
+  locationCity   String?
+  salaryMin      Int?
+  salaryMax      Int?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+  savedBy      SavedJob[]
+
+  @@index([companyId])
+  @@index([isActive, createdAt])
+}
+
+model SavedJob {
+  userId  BigInt
+  jobId   BigInt
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([userId, jobId])
+}
+
+model JobApplication {
+  id        BigInt            @id @default(autoincrement())
+  userId    BigInt
+  jobId     BigInt
+  status    ApplicationStatus @default(APPLIED)
+  coverNote String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([jobId])
+  @@index([status])
+}
+
+model Post {
+  id            BigInt     @id @default(autoincrement())
+  content       String     @db.Text
+  imageUrl      String?    @db.VarChar(2048)
+  authorType    AuthorType
+  authorId      BigInt
+  likesCount    Int        @default(0)
+  commentsCount Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  likes    PostLike[]
+  comments PostComment[]
+
+  @@index([authorType, authorId])
+  @@index([createdAt])
+  @@map("posts") // ← Adicionar esta linha
+}
+
+model PostLike {
+  id        BigInt   @id @default(autoincrement())
+  postId    BigInt
+  userId    BigInt
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        BigInt   @id @default(autoincrement())
+  content   String   @db.Text
+  postId    BigInt
+  userId    BigInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model Report {
+  id         BigInt       @id @default(autoincrement())
+  reporterId BigInt
+  targetType ReportTarget
+  targetId   BigInt
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([targetType, targetId])
+}

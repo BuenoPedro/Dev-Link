@@ -1,0 +1,224 @@
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$schema = @"
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  COMPANY_ADMIN
+  ADMIN
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum EmploymentType {
+  CLT
+  PJ
+  FREELANCE
+  INTERNSHIP
+  OTHER
+}
+
+enum Seniority {
+  JUNIOR
+  PLENO
+  SENIOR
+  LEAD
+  ANY
+}
+
+enum LocationType {
+  ONSITE
+  REMOTE
+  HYBRID
+}
+
+enum ApplicationStatus {
+  APPLIED
+  REVIEWING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ReportTarget {
+  USER
+  COMPANY
+  JOB
+  POST
+  COMMENT
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  CLOSED
+}
+
+model User {
+  id            BigInt   @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(USER)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile       UserProfile?
+  skills        UserSkill[]
+  requested     Connection[] @relation("RequestedConnections")
+  received      Connection[] @relation("ReceivedConnections")
+  companies     Company[]    @relation("CompanyOwners")
+  savedJobs     SavedJob[]
+  applications  JobApplication[]
+  reports       Report[]     @relation("Reporter")
+}
+
+model UserProfile {
+  userId      BigInt  @id
+  displayName String
+  headline    String?
+  bio         String?
+  avatarUrl   String?
+  location    String?
+  websiteUrl  String?
+  githubUrl   String?
+  linkedinUrl String?
+
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  users UserSkill[]
+  jobs  JobSkill[]
+}
+
+model UserSkill {
+  userId      BigInt
+  skillId     Int
+  proficiency Int      @default(3)
+  yearsExp    Float?
+
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill  Skill @relation(fields: [skillId], references: [id])
+
+  @@id([userId, skillId])
+}
+
+model Connection {
+  id          BigInt   @id @default(autoincrement())
+  requesterId BigInt
+  addresseeId BigInt
+  status      ConnectionStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  actedAt     DateTime?
+
+  requester User @relation("RequestedConnections", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("ReceivedConnections", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model Company {
+  id           BigInt   @id @default(autoincrement())
+  name         String
+  slug         String   @unique
+  websiteUrl   String?
+  location     String?
+  logoUrl      String?
+  ownerUserId  BigInt?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner User?  @relation("CompanyOwners", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  jobs  Job[]
+}
+
+model Job {
+  id             BigInt   @id @default(autoincrement())
+  companyId      BigInt
+  title          String
+  description    String
+  employmentType EmploymentType @default(OTHER)
+  seniority      Seniority       @default(ANY)
+  locationType   LocationType    @default(REMOTE)
+  location       String?
+  isActive       Boolean         @default(true)
+  viewsCount     Int             @default(0)
+  appliesCount   Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  skills    JobSkill[]
+  savedBy   SavedJob[]
+  applies   JobApplication[]
+}
+
+model JobSkill {
+  jobId   BigInt
+  skillId Int
+
+  job   Job   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@id([jobId, skillId])
+}
+
+model SavedJob {
+  userId    BigInt
+  jobId     BigInt
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([userId, jobId])
+}
+
+model JobApplication {
+  id          BigInt   @id @default(autoincrement())
+  userId      BigInt
+  jobId       BigInt
+  status      ApplicationStatus @default(APPLIED)
+  coverLetter String?
+  resumeUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+}
+
+model Report {
+  id          BigInt   @id @default(autoincrement())
+  reporterId  BigInt
+  targetType  ReportTarget
+  targetId    BigInt
+  reason      String
+  details     String?
+  status      ReportStatus @default(OPEN)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
+}
+"@
+[System.IO.File]::WriteAllText("$PWD\prisma\schema.prisma", $schema, $utf8NoBom)
