@@ -39,7 +39,8 @@ const cache = new Map();
 const pendingRequests = new Map();
 const events = new EventEmitter();
 
-const base = '';
+// URL base da API - ajuste conforme necessário
+const base = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function getHeaders() {
   const h = { 'Content-Type': 'application/json' };
@@ -51,10 +52,12 @@ function getHeaders() {
 // Cache com TTL mais longo para evitar piscadas
 function getCacheTTL(path) {
   if (path.includes('/users/') && !path.includes('/me')) return 600000; // 10 min para outros usuários
+  if (path.includes('/posts')) return 1000; // 1 segundo para posts
   if (path.includes('/suggestions')) return 300000; // 5 min para sugestões
   if (path.includes('/connections/my')) return 180000; // 3 min para conexões
   if (path.includes('/connections/requests')) return 120000; // 2 min para pedidos
   if (path.includes('/auth/me')) return 180000; // 3 min para próprio perfil
+  if (path.includes('/companies/')) return 300000; // 5 min para empresas
   return 120000; // 2 min padrão
 }
 
@@ -120,56 +123,95 @@ function forceInvalidateAllPosts() {
   console.log('🔥 Cache de posts invalidado (completo)');
 }
 
+// Função de requisição AJAX melhorada
 async function request(path, options = {}) {
-  const res = await fetch(base + path, {
-    ...options,
-    headers: { ...getHeaders(), ...(options.headers || {}) },
-  });
+  try {
+    const res = await fetch(base + path, {
+      ...options,
+      headers: { ...getHeaders(), ...(options.headers || {}) },
+    });
 
-  if (!res.ok) {
-    if (res.status === 429) {
-      throw new Error('Rate limit atingido');
+    if (!res.ok) {
+      if (res.status === 429) {
+        throw new Error('Rate limit atingido. Aguarde alguns segundos.');
+      }
+
+      let errorData = null;
+      try {
+        const text = await res.text();
+        errorData = text ? JSON.parse(text) : null;
+      } catch (parseError) {
+        console.error('Erro ao parsear resposta de erro:', parseError);
+      }
+
+      const msg = errorData?.message || errorData?.error || `HTTP ${res.status}`;
+      throw new Error(msg);
     }
-    const text = await res.text();
-    const errorData = text ? JSON.parse(text) : null;
-    const msg = errorData?.message || errorData?.error || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
 
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } catch (error) {
+    // Se for erro de rede ou timeout
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      throw new Error('Erro de conexão. Verifique se o servidor está rodando.');
+    }
+    throw error;
+  }
 }
 
+// GET com stale-while-revalidate (SEM PISCADAS)
 const get = async (path, options = {}) => {
   const cacheKey = path;
 
-  // Verificar cache primeiro (com prioridade alta)
-  if (options.useCache !== false && options.skipCache !== true) {
-    const cached = getFromCache(cacheKey);
-    if (cached) {
+  // Verificar cache primeiro (SEMPRE retorna se existir, mesmo expirado)
+  const cached = cache.get(cacheKey);
+  
+  if (cached) {
+    const ttl = getCacheTTL(cacheKey);
+    const isExpired = Date.now() - cached.timestamp > ttl;
+    
+    // Se não expirou, retorna imediatamente
+    if (!isExpired) {
       console.log(`💾 Cache hit: ${path}`);
-      return cached;
+      return cached.data;
     }
+    
+    // Se expirou, retorna dados antigos MAS busca novos em background
+    console.log(`🔄 Cache stale, revalidando em background: ${path}`);
+    
+    // Busca em background (não aguarda)
+    request(path, { method: 'GET', ...options })
+      .then((data) => {
+        setCache(cacheKey, data);
+        console.log(`✅ Cache atualizado em background: ${path}`);
+        
+        // Emite evento para componentes interessados
+        events.emit('cacheUpdated', { path, data });
+      })
+      .catch((error) => {
+        console.error(`❌ Erro ao atualizar cache em background: ${path}`, error);
+      });
+    
+    // Retorna dados antigos imediatamente (SEM PISCAR)
+    return cached.data;
   }
 
-  // Verificar se já tem uma requisição pendente
+  // Se não tem cache, verificar requisição pendente
   if (pendingRequests.has(cacheKey)) {
     console.log(`⏳ Aguardando requisição: ${path}`);
     return pendingRequests.get(cacheKey);
   }
 
-  // Fazer a requisição
+  // Fazer a requisição pela primeira vez
   const requestPromise = request(path, { method: 'GET', ...options })
     .then((data) => {
-      if (options.useCache !== false && options.skipCache !== true) {
-        setCache(cacheKey, data);
-        console.log(`💾 Dados salvos no cache: ${path}`);
-      }
+      setCache(cacheKey, data);
+      console.log(`💾 Dados salvos no cache: ${path}`);
       return data;
     })
     .catch((error) => {
       console.error(`❌ Erro na requisição ${path}:`, error);
-
+      
       // Em caso de erro, tentar cache antigo (mesmo expirado)
       if (error.message.includes('Rate limit') || error.message.includes('Failed to fetch')) {
         const staleCache = cache.get(cacheKey);
