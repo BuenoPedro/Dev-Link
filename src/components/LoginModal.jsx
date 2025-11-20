@@ -49,12 +49,6 @@ export default function LoginModal({ isOpen, onClose }) {
     setError('');
     setLoading(true);
     let response;
-
-    try {
-      if (tab === 'login') {
-        response = await api.post('/api/auth/login', { email, password });
-      } else if (tab === 'register') {
-        response = await api.post('/api/auth/register', {
     let r
     try {
       if (tab === 'login') {

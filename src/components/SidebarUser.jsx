@@ -11,7 +11,10 @@ export default function SidebarUser() {
     const loadUser = async () => {
       try {
         const userData = await api.get('/api/auth/me');
-        setUser(userData.user);
+        if (userData.user.role === 'COMPANY_ADMIN') {
+          const companyData = await api.get('/api/auth/cme');
+          setUser(companyData.user);
+        } else setUser(userData.user);
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
       } finally {
@@ -61,7 +64,7 @@ export default function SidebarUser() {
           {/* Nome */}
           <Link to="/user" className="mt-4 hover:underline">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 text-center">
-              {profile.displayName || user.email}
+              {profile.displayName || user.name}
             </h2>
           </Link>
 
