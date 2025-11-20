@@ -53,3 +53,26 @@ export async function deleteUser(req: Request, res: Response) {
     return res.status(500).json({ message: 'Erro ao remover usuário' });
   }
 }
+
+const updateRoleSchema = z.object({
+  role: z.enum(['USER', 'COMPANY_ADMIN', 'ADMIN']),
+});
+
+export async function updateUserRole(req: Request, res: Response) {
+  try {
+    const id = BigInt(req.params.id);
+    const { role } = updateRoleSchema.parse(req.body);
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    const updated = await prisma.user.update({ where: { id }, data: { role } });
+    return res.status(200).json({ user: { id: updated.id, email: updated.email, role: updated.role } });
+  } catch (err: any) {
+    if (err?.issues) {
+      return res.status(400).json({ message: 'Dados inválidos', details: err.issues });
+    }
+    console.error('[updateUserRole] error:', err);
+    return res.status(500).json({ message: 'Erro ao atualizar papel do usuário' });
+  }
+}

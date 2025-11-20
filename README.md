@@ -22,6 +22,8 @@
 - ADM pode remover usuários/empresas ✅
 - ADM pode remover conteudo impróprio ✅
 - ADM pode aprovar anuncios 
+- ADM pode criar novos ADM ✅
+- ADM pode modificar o status de usuario, deixando ele ser adm e podendo remover isso dele ✅
 
 ## Geral
 
@@ -41,8 +43,10 @@
 - Aprovar/Recusar candidatos
 
 ## Guilherme Ferraz
-- ADM pode remover usuários/empresas ✅
 - ADM pode remover conteudo impróprio ✅
+- ADM pode remover conteudo impróprio ✅
+- ADM pode criar novos ADM ✅
+- ADM pode modificar o status de usuario, deixando ele ser adm e podendo remover isso dele ✅
 - ADM pode aprovar anuncios 
 
 .env ->
