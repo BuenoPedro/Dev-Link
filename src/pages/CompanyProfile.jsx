@@ -98,7 +98,7 @@ export default function CompanyProfile() {
           userData = await api.get(`/api/companies/${debouncedId}`);
         } else {
           // Carrega perfil da própria empresa logada - CORRIGIDO: /api/auth/me
-          userData = await api.get('/api/auth/me');
+          userData = await api.get('/api/auth/cme');
         }
 
         if (!mounted) return;
