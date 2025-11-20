@@ -40,11 +40,16 @@
 - Vagas em alta
 - Aprovar/Recusar candidatos
 
+## Guilherme Ferraz
+- ADM pode remover usuários/empresas ✅
+- ADM pode remover conteudo impróprio ✅
+- ADM pode aprovar anuncios 
 
 .env ->
 
 PORT=3000
 DATABASE_URL="mysql://root:Rodri0502@localhost:3306/devlink"
 JWT_SECRET="mude-isto-para-um-segredo-bem-grande"
+
 
 Para fazer login como adm vc precisa do email: adm@devlink.local e de sua senha 123123
