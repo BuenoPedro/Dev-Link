@@ -52,7 +52,7 @@ function getHeaders() {
 // Cache com TTL mais longo para evitar piscadas
 function getCacheTTL(path) {
   if (path.includes('/users/') && !path.includes('/me')) return 600000; // 10 min para outros usuários
-  if (path.includes('/posts')) return 5000; // 5 segundos para posts
+  if (path.includes('/posts')) return 1000; // 1 segundo para posts
   if (path.includes('/suggestions')) return 300000; // 5 min para sugestões
   if (path.includes('/connections/my')) return 180000; // 3 min para conexões
   if (path.includes('/connections/requests')) return 120000; // 2 min para pedidos

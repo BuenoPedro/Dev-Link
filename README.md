@@ -5,10 +5,10 @@
 - CRUD Usuário ✅
 - Conexão entre os usuários ✅
 - Adicionar competências do usuário ✅
-- Usuário se candidatar a vagas
+- Usuário se candidatar a vagas ✅
 - Usuário seguir as empresas ✅
-- Pesquisar Vagas por palavras chaves
-- Filtros de procura de vagas
+- Pesquisar Vagas por palavras chaves ✅
+- Filtros de procura de vagas 
 
 ## Empresas
 
