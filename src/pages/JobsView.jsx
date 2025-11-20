@@ -194,7 +194,7 @@ export default function JobsView() {
               <div className="mt-4 text-xs text-gray-400 flex items-center gap-1">
                  <FiClock className="w-3 h-3"/> Publicada em {new Date(job.createdAt).toLocaleDateString('pt-BR')}
               </div>
-              {me.role==='COMPANY_ADMIN' ? (
+              {me?.role==='COMPANY_ADMIN' ? (
                     <div className='mt-6'>
                     <Link 
                       to={`/jobs/${job.id}`}
@@ -207,7 +207,7 @@ export default function JobsView() {
               <div className="mt-5 flex flex-col items-start gap-2">
                 {/* Área de Ação */}
                 <div className="w-full sm:w-auto flex flex-wrap items-center gap-3">
-                    {me.role==='COMPANY_ADMIN' || job.hasApplied ? (
+                    {me?.role==='COMPANY_ADMIN' || job.hasApplied ? (
                         // Se já aplicou
                         confirmingCancelId === job.id ? (
                             // Modo de Confirmação
