@@ -11,6 +11,7 @@ import CompanyProfile from './pages/CompanyProfile';
 import Connections from './pages/Connections';
 import JobsView from './pages/JobsView';
 import JobsNew from './pages/JobsNew';
+import AdminPanel from './pages/AdminPanel';
 import JobDetails from './pages/JobDetails';
 
 function App() {
@@ -48,6 +49,9 @@ function App() {
 
               {/* Página de conexões */}
               <Route path="/connections" element={<Connections />} />
+
+              {/* Admin */}
+              <Route path="/admin" element={<AdminPanel />} />
             </Routes>
           </div>
         </div>

@@ -48,6 +48,13 @@ export default function LoginModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    let response;
+
+    try {
+      if (tab === 'login') {
+        response = await api.post('/api/auth/login', { email, password });
+      } else if (tab === 'register') {
+        response = await api.post('/api/auth/register', {
     let r
     try {
       if (tab === 'login') {
@@ -62,7 +69,6 @@ export default function LoginModal({ isOpen, onClose }) {
           cpf,
           birthDate: birthDate || undefined,
         });
-        localStorage.setItem('token', r.token);
       } else {
         // company
         const payload = {

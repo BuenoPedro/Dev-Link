@@ -12,6 +12,7 @@ import experienceRoutes from './routes/experiences.routes';
 import companyRoutes from './routes/companies.routes';
 import postRoutes from './routes/posts.routes';
 import jobsRoutes from './routes/jobs.routes';
+import adminRoutes from './routes/admin.routes';
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/experiences', experienceRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
