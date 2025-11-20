@@ -5,10 +5,10 @@
 - CRUD Usuário ✅
 - Conexão entre os usuários ✅
 - Adicionar competências do usuário ✅
-- Usuário se candidatar a vagas
+- Usuário se candidatar a vagas ✅
 - Usuário seguir as empresas ✅
-- Pesquisar Vagas por palavras chaves
-- Filtros de procura de vagas
+- Pesquisar Vagas por palavras chaves ✅
+- Filtros de procura de vagas 
 
 ## Empresas
 
@@ -29,15 +29,16 @@
 - Pacotes premiums
 - Vagas em alta
 - Denuncia de usuário ou empresas
-- Fazer posts no feed
+- Fazer posts no feed ✅
 
 
-## Eu
+## Pedro
 - Empresas publicar vagas ✅
-- Usuário se candidatar a vagas
-- Pesquisar Vagas por palavras chaves
+- Usuário se candidatar a vagas ✅
+- Pesquisar Vagas por palavras chaves ✅
 - Filtros de procura de vagas
 - Vagas em alta
+- Aprovar/Recusar candidatos
 
 
 .env ->

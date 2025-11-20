@@ -95,9 +95,9 @@ export default function CompanyProfile() {
         let userData;
 
         if (debouncedId) {
-          userData = await api.get(`/api/users/${debouncedId}`);
+          userData = await api.get(`/api/companies/${debouncedId}`);
         } else {
-          // Chama endpoint de empresa
+          // Carrega perfil da própria empresa logada - CORRIGIDO: /api/auth/me
           userData = await api.get('/api/auth/cme');
         }
 
@@ -163,7 +163,7 @@ export default function CompanyProfile() {
     
     try {
       // Ajuste a rota conforme seu backend (ex: /api/companies/me ou similar)
-      // Como o endpoint de leitura é /cme, o de update deve ser coerente
+      // Como o endpoint de leitura é /me, o de update deve ser coerente
       const r = await api.put('/api/companies/me', payload); 
       
       setMe((old) => ({ ...old, ...r.user })); // Atualiza estado local

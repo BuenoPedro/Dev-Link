@@ -10,7 +10,11 @@ export interface AuthedRequest extends Request {
 }
 
 export interface AuthedCompanyRequest extends Request {
-  company?: { id: bigint };
+  company?: { id: bigint; };
+}
+
+export interface AuthedUserCompanyRequest extends Request {
+  company?: { ownerUserId: bigint };
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
@@ -29,14 +33,14 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   }
 }
 
-export function requireAuthCompany(req: AuthedCompanyRequest, res: Response, next: NextFunction) {
+export function requireAuthCompany(req: AuthedUserCompanyRequest, res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ message: 'Token ausente' });
 
   const token = auth.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET) as any;
-    req.company = { id: BigInt(payload.sub) };
+    req.company = { ownerUserId: BigInt(payload.sub) };
     next();
   } catch {
     return res.status(401).json({ message: 'Token inválido' });

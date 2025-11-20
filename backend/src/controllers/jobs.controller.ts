@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { z } from 'zod';
-import { AuthedCompanyRequest, AuthedRequest } from '../middlewares/auth';
+import { AuthedUserCompanyRequest, AuthedRequest } from '../middlewares/auth';
 // CORREÇÃO: Importar os Enums gerados pelo Prisma para tipagem correta
 import { EmploymentType, Seniority, LocationType } from '@prisma/client';
 import jwt from 'jsonwebtoken';
@@ -25,9 +25,9 @@ const jobSchema = z.object({
 // Schema parcial para atualizações (todos os campos opcionais)
 const jobUpdateSchema = jobSchema.partial();
 
-export async function createJob(req: AuthedCompanyRequest, res: Response) {
+export async function createJob(req: AuthedUserCompanyRequest, res: Response) {
   try {
-    const ownerUserId = req.company!.id;
+    const ownerUserId = req.company!.ownerUserId;
 
     // 1. Identificar a empresa do usuário logado
     const company = await prisma.company.findFirst({
@@ -132,7 +132,7 @@ export async function applyJob(req: AuthedRequest, res: Response) {
 
         // Verifica Role
         if (req.user!.role !== 'USER') {
-            return res.status(403).json({ message: 'Apenas candidatos (USER) podem se aplicar para vagas.' });
+            return res.status(403).json({ message: 'Apenas usuários registrados como candidatos podem se aplicar para vagas.' });
         }
 
         // Verifica se vaga existe
@@ -213,10 +213,10 @@ export async function getJob(req: Request, res: Response) {
   }
 }
 
-export async function updateJob(req: AuthedCompanyRequest, res: Response) {
+export async function updateJob(req: AuthedUserCompanyRequest, res: Response) {
   try {
     const { id } = req.params;
-    const ownerUserId = req.company!.id;
+    const ownerUserId = req.company!.ownerUserId;
 
     // Usa o schema parcial para validar apenas campos enviados
     const data = jobUpdateSchema.parse(req.body);
@@ -251,10 +251,10 @@ export async function updateJob(req: AuthedCompanyRequest, res: Response) {
   }
 }
 
-export async function deleteJob(req: AuthedCompanyRequest, res: Response) {
+export async function deleteJob(req: AuthedUserCompanyRequest, res: Response) {
   try {
     const { id } = req.params;
-    const ownerUserId = req.company!.id;
+    const ownerUserId = req.company!.ownerUserId;
 
     const job = await prisma.job.findUnique({
       where: { id: BigInt(id) },

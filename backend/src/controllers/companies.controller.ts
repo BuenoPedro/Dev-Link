@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { AuthedRequest } from '../middlewares/auth';
+import { AuthedRequest, AuthedCompanyRequest } from '../middlewares/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'devlink-secret';
 
@@ -111,13 +111,29 @@ export async function listCompanies(_req: AuthedRequest, res: Response) {
 }
 
 // GET /api/companies/:id (público)
-export async function getCompany(req: AuthedRequest, res: Response) {
-  const id = BigInt(req.params.id);
-  const company = await prisma.company.findUnique({
-    where: { id },
-  });
-  if (!company) return res.status(404).json({ message: 'Empresa não encontrada' });
-  res.json({ company });
+export async function getCompany(req: AuthedCompanyRequest, res: Response) {
+  try {
+    const idParam = req.params.id;
+
+    if (!idParam || isNaN(Number(idParam))) {
+      return res.status(400).json({ message: 'ID inválido' });
+    }
+
+    const id = BigInt(idParam);
+
+    const company = await prisma.company.findUnique({
+      where: { id },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: 'Empresa não encontrada' });
+    }
+    return res.json({ user: company });
+
+  } catch (error) {
+    console.error('Erro ao buscar empresa:', error);
+    return res.status(500).json({ message: 'Erro interno do servidor' });
+  }
 }
 
 // PUT /api/companies/:id (owner ou ADMIN)

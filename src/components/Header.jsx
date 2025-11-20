@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiHome, FiBriefcase, FiBell, FiUser, FiSearch, FiMenu, FiX, FiMapPin, FiClock } from 'react-icons/fi';
+import { FiHome, FiBriefcase, FiBell, FiUser, FiSearch, FiMenu, FiX, FiMapPin } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import LoginModal from './LoginModal';
@@ -33,7 +33,7 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
       }
 
       try {
-        // Aqui buscamos todas para filtrar localmente (ideal seria endpoint de busca no backend: /api/jobs?q=...)
+        // Busca todas as vagas para filtrar localmente
         const response = await api.get('/api/jobs');
         const allJobs = Array.isArray(response) ? response : (response.jobs || []);
 
@@ -48,7 +48,7 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
       } catch (error) {
         console.error("Erro na busca", error);
       }
-    }, 300); // 300ms de delay para não chamar API a cada letra
+    }, 300); // 300ms de delay
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
@@ -78,6 +78,13 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
     setIsMobileMenuOpen(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token'); 
+    
+    sessionStorage.clear();
+    window.location.href = '/';
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 bg-sky-500 shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -103,6 +110,9 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
             <button onClick={handleProfileClick} className="text-white hover:text-sky-200 transition-colors" title="Perfil">
               <FiUser size={20} />
             </button>
+            <button onClick={handleLogout} className="text-white hover:text-sky-200 transition-colors" title="Logout">
+              <FiX size={20} />
+            </button>
           </nav>
 
           {/* Busca + Theme (Desktop) */}
@@ -124,7 +134,7 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
 
               {/* Dropdown de Sugestões */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full mt-2 w-80 right-0 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="absolute top-full mt-2 w-80 right-0 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50">
                   <ul>
                     {suggestions.map((job) => (
                       <li key={job.id}>
@@ -175,7 +185,7 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
                 
                 {/* Sugestões Mobile */}
                 {suggestions.length > 0 && searchTerm.length >= 2 && (
-                   <div className="mt-2 bg-white rounded-lg shadow-lg overflow-hidden">
+                   <div className="mt-2 bg-white rounded-lg shadow-lg overflow-hidden relative z-50">
                       {suggestions.map(job => (
                         <button
                           key={job.id}

@@ -1,205 +1,238 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
-import { usePosts } from '../hooks/usePosts';
-import CreatePost from '../components/CreatePost';
 import PostCard from '../components/PostCard';
-import { FiRefreshCw, FiWifi, FiWifiOff } from 'react-icons/fi';
+import Sidebar from '../components/Sidebar';
+import SidebarUser from '../components/SidebarUser';
+import { FiRefreshCw } from 'react-icons/fi';
 
 export default function Feed() {
-  const { posts, loading, error, hasLoadedOnce, addPost, updatePost, removePost, refetch } = usePosts();
-
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  
+  const observerTarget = useRef(null);
 
+  // Carregar dados do usuário atual
   useEffect(() => {
-    loadUserData();
-
-    // Detectar status de conexão
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+    const loadCurrentUser = async () => {
+      try {
+        const userData = await api.get('/api/auth/me');
+        setCurrentUser(userData.user);
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
+      } finally {
+        setLoadingUser(false);
+      }
     };
+
+    loadCurrentUser();
   }, []);
 
-  const loadUserData = async () => {
+  // Carregar posts com paginação
+  const loadPosts = useCallback(async (pageNum = 1, append = false) => {
     try {
-      const userResponse = await api.get('/api/auth/me');
-      setCurrentUser(userResponse.user);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError(null);
+
+      const response = await api.get(`/api/posts?page=${pageNum}&limit=10`, {
+        useCache: false,
+      });
+
+      const newPosts = response.posts || [];
+
+      if (append) {
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...uniqueNewPosts];
+        });
+      } else {
+        setPosts(newPosts);
+      }
+
+      if (newPosts.length < 10) {
+        setHasMore(false);
+      }
     } catch (error) {
-      console.error('Erro ao carregar dados do usuário:', error);
-    }
-  };
-
-  const handlePostCreated = (newPost, isTemporary = false, tempId = null) => {
-    console.log('🚀 Novo post criado:', { newPost, isTemporary, tempId });
-    addPost(newPost, isTemporary, tempId);
-  };
-
-  const handlePostUpdate = (updatedPost) => {
-    console.log('📝 Post atualizado:', updatedPost);
-    updatePost(updatedPost);
-  };
-
-  const handlePostDelete = (deletedPostId) => {
-    console.log('🗑️ Post deletado:', deletedPostId);
-    removePost(deletedPostId);
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refetch();
+      setError(error.message);
+      console.error('Erro ao carregar posts:', error);
     } finally {
-      setRefreshing(false);
+      setLoading(false);
+      setLoadingMore(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadPosts(1, false);
+  }, [loadPosts]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          loadPosts(nextPage, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loading, page, loadPosts]);
+
+  const handlePostDeleted = (postId) => {
+    setPosts((prev) => prev.filter((post) => post.id !== postId));
   };
 
-  // Loading inicial apenas no primeiro carregamento
-  if (loading && !hasLoadedOnce) {
-    return (
-      <div className="max-w-2xl mx-auto py-8">
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600"></div>
-          <span className="ml-3 text-gray-600 dark:text-gray-300">Carregando feed...</span>
-        </div>
-      </div>
+  const handleLikeUpdate = (postId, liked) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            liked,
+            _count: {
+              ...post._count,
+              likes: liked ? post._count.likes + 1 : Math.max(0, post._count.likes - 1),
+            },
+          };
+        }
+        return post;
+      })
     );
-  }
+  };
 
-  // Error inicial
-  if (error && !hasLoadedOnce) {
+  if (loadingUser) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <div className="text-center py-12">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Erro ao carregar o feed</h3>
-          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="px-6 py-3 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {refreshing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Carregando...
-              </>
-            ) : (
-              <>
-                <FiRefreshCw />
-                Tentar novamente
-              </>
-            )}
-          </button>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
+        <aside className="hidden lg:block lg:col-span-1">
+          <div className="sticky top-20">
+            <SidebarUser />
+          </div>
+        </aside>
+        <main className="col-span-1 lg:col-span-2">
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
+            <span className="ml-3 text-gray-600 dark:text-gray-300">Carregando...</span>
+          </div>
+        </main>
+        <aside className="hidden lg:block lg:col-span-1">
+          <Sidebar />
+        </aside>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 p-4">
-      {/* Header com status e controles */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Feed</h1>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
+      {/* Coluna esquerda - SidebarUser (25%) - STICKY FIXO */}
+      <aside className="hidden lg:block lg:col-span-1">
+        <div className="sticky top-20">
+          <SidebarUser />
+        </div>
+      </aside>
 
-          {/* Indicador de conexão */}
-          <div className="flex items-center gap-1">
-            {isOnline ? <FiWifi className="text-green-500" size={16} title="Online" /> : <FiWifiOff className="text-red-500" size={16} title="Offline" />}
+      {/* Coluna central - Feed de Posts (50%) */}
+      <main className="col-span-1 lg:col-span-2">
+        {loading && posts.length === 0 ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
+            <span className="ml-3 text-gray-600 dark:text-gray-300">Carregando publicações...</span>
           </div>
-
-          {/* Indicador de posts temporários */}
-          {posts.some((p) => p.isTemporary) && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 rounded-full text-xs">
-              <div className="animate-pulse w-2 h-2 bg-sky-500 rounded-full"></div>
-              {posts.filter((p) => p.isTemporary).length} enviando...
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Indicador de carregamento apenas quando refreshing manualmente */}
-          {refreshing && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sky-600"></div>}
-
-          {/* Botão de refresh manual */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing || !isOnline}
-            className="px-3 py-2 text-sky-600 hover:text-sky-700 text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1"
-            title={!isOnline ? 'Sem conexão' : 'Atualizar feed'}
-          >
-            <FiRefreshCw className={refreshing ? 'animate-spin' : ''} size={14} />
-            Atualizar
-          </button>
-        </div>
-      </div>
-
-      {/* Alertas */}
-      {!isOnline && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-            <FiWifiOff size={16} />
-            <span className="text-sm font-medium">Você está offline</span>
-          </div>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Posts criados offline aparecerão quando a conexão for restabelecida</p>
-        </div>
-      )}
-
-      {error && hasLoadedOnce && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-              <span>⚠️</span>
-              <span className="text-sm">Erro ao atualizar: {error}</span>
-            </div>
-            <button onClick={handleRefresh} className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200">
-              Tentar novamente
+        ) : error ? (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 text-center">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+            <button
+              onClick={() => {
+                setPage(1);
+                setHasMore(true);
+                loadPosts(1, false);
+              }}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              <FiRefreshCw /> Tentar novamente
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Formulário de criação */}
-      <CreatePost onPostCreated={handlePostCreated} />
-
-      {/* Lista de posts com loading inteligente */}
-      <div className="space-y-6">
-        {posts.length === 0 && hasLoadedOnce ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Nenhum post ainda</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">Seja o primeiro a compartilhar algo interessante!</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">💡 Dica: Posts aparecem instantaneamente quando você publica</p>
-          </div>
-        ) : posts.length === 0 && !hasLoadedOnce ? (
-          // Loading para posts quando ainda não carregou
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto mb-4"></div>
-            <p className="text-gray-500 dark:text-gray-400">Carregando posts...</p>
+        ) : posts.length === 0 ? (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-12 text-center shadow-sm">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Nenhuma publicação ainda
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Quando alguém publicar algo, aparecerá aqui.
+            </p>
           </div>
         ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} currentUser={currentUser} onPostUpdate={handlePostUpdate} onPostDelete={handlePostDelete} />)
-        )}
-      </div>
+          <>
+            <div className="space-y-6">
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUser={currentUser}
+                  onPostDelete={handlePostDeleted}
+                  onLikeUpdate={handleLikeUpdate}
+                />
+              ))}
+            </div>
 
-      {/* Footer com estatísticas - apenas se tiver posts */}
-      {posts.length > 0 && (
-        <div className="text-center py-8 border-t border-gray-100 dark:border-gray-800">
-          <div className="space-y-2">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              ✨ {posts.length} {posts.length === 1 ? 'post carregado' : 'posts carregados'}
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">UI otimística • Cache inteligente • Sem reloads automáticos</p>
-          </div>
+            {loadingMore && (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sky-600"></div>
+                <span className="ml-3 text-sm text-gray-600 dark:text-gray-300">
+                  Carregando mais publicações...
+                </span>
+              </div>
+            )}
+
+            {hasMore && !loadingMore && (
+              <div ref={observerTarget} className="h-20 flex items-center justify-center">
+                <div className="text-sm text-gray-400">Role para carregar mais...</div>
+              </div>
+            )}
+
+            {!hasMore && posts.length > 0 && (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Você chegou ao fim das publicações 🎉
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Coluna direita - Sidebar (25%) - STICKY COM SCROLL INVISÍVEL */}
+      <aside className="hidden lg:block lg:col-span-1 relative">
+        <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+          <Sidebar />
         </div>
-      )}
+      </aside>
     </div>
   );
 }
