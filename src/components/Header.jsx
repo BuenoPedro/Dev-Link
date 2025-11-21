@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiHome, FiBriefcase, FiBell, FiUser, FiSearch, FiMenu, FiX, FiMapPin } from 'react-icons/fi';
+import { FiHome, FiBriefcase, FiBell, FiUser, FiSearch, FiMenu, FiMapPin, FiX } from 'react-icons/fi';
+import { MdOutlineLogout } from 'react-icons/md';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
-import LoginModal from './LoginModal';
 import { api } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
-  const [loginOpen, setLoginOpen] = useState(false);
+  const { user, logout } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -33,43 +34,42 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
       }
 
       try {
-        // Busca todas as vagas para filtrar localmente
         const response = await api.get('/api/jobs');
-        const allJobs = Array.isArray(response) ? response : (response.jobs || []);
+        const allJobs = Array.isArray(response) ? response : response.jobs || [];
 
-        // Filtra por título ou empresa
-        const filtered = allJobs.filter(job => 
-          job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-        ).slice(0, 5); // Limita a 5 sugestões
+        const filtered = allJobs
+          .filter((job) => job.title.toLowerCase().includes(searchTerm.toLowerCase()) || job.company?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+          .slice(0, 5);
 
         setSuggestions(filtered);
         setShowSuggestions(true);
       } catch (error) {
-        console.error("Erro na busca", error);
+        console.error('Erro na busca', error);
       }
-    }, 300); // 300ms de delay
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  async function handleProfileClick(e) {
+  const handleHomeClick = (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      setLoginOpen(true);
+    if (user) {
+      navigate('/feed');
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleProfileClick = (e) => {
+    e.preventDefault();
+    if (!user) {
+      navigate('/login');
       return;
     }
 
-    try {
-      const user = await api.get("/api/auth/me");
-      const isCompany = user.user.role === 'COMPANY_ADMIN';
-      navigate(isCompany ? '/company' : '/user');
-    } catch (error) {
-      setLoginOpen(true);
-    }
-  }
+    const isCompany = user.role === 'COMPANY_ADMIN';
+    navigate(isCompany ? '/company' : '/user');
+  };
 
   const handleSelectSuggestion = (jobId) => {
     navigate(`/jobs/${jobId}`);
@@ -79,11 +79,8 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); 
-    
-    sessionStorage.clear();
-    window.location.href = '/';
-  }
+    logout();
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-sky-500 shadow-lg z-50">
@@ -91,16 +88,16 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 cursor-pointer">
+            <button onClick={handleHomeClick} className="flex-shrink-0 cursor-pointer">
               <h1 className="text-white text-xl font-bold">DevLink</h1>
-            </Link>
+            </button>
           </div>
 
           {/* Navegação Desktop */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-white hover:text-sky-200 transition-colors" title="Início">
+            <button onClick={handleHomeClick} className="text-white hover:text-sky-200 transition-colors" title="Início">
               <FiHome size={20} />
-            </Link>
+            </button>
             <Link to="/jobs" className="text-white hover:text-sky-200 transition-colors" title="Vagas">
               <FiBriefcase size={20} />
             </Link>
@@ -110,9 +107,11 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
             <button onClick={handleProfileClick} className="text-white hover:text-sky-200 transition-colors" title="Perfil">
               <FiUser size={20} />
             </button>
-            <button onClick={handleLogout} className="text-white hover:text-sky-200 transition-colors" title="Logout">
-              <FiX size={20} />
-            </button>
+            {user && (
+              <button onClick={handleLogout} className="text-white hover:text-sky-200 transition-colors" title="Logout">
+                <MdOutlineLogout size={20} />
+              </button>
+            )}
           </nav>
 
           {/* Busca + Theme (Desktop) */}
@@ -182,27 +181,27 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
                   className="w-full bg-white rounded-full py-2 pl-4 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
                 />
                 <FiSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                
+
                 {/* Sugestões Mobile */}
                 {suggestions.length > 0 && searchTerm.length >= 2 && (
-                   <div className="mt-2 bg-white rounded-lg shadow-lg overflow-hidden relative z-50">
-                      {suggestions.map(job => (
-                        <button
-                          key={job.id}
-                          onClick={() => handleSelectSuggestion(job.id)}
-                          className="block w-full text-left px-4 py-3 text-sm text-gray-700 border-b last:border-0 hover:bg-gray-50"
-                        >
-                          <div className="font-bold">{job.title}</div>
-                          <div className="text-xs text-gray-500">{job.company?.name}</div>
-                        </button>
-                      ))}
-                   </div>
+                  <div className="mt-2 bg-white rounded-lg shadow-lg overflow-hidden relative z-50">
+                    {suggestions.map((job) => (
+                      <button
+                        key={job.id}
+                        onClick={() => handleSelectSuggestion(job.id)}
+                        className="block w-full text-left px-4 py-3 text-sm text-gray-700 border-b last:border-0 hover:bg-gray-50"
+                      >
+                        <div className="font-bold">{job.title}</div>
+                        <div className="text-xs text-gray-500">{job.company?.name}</div>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <Link to="/" className="flex items-center px-3 py-2 text-white hover:bg-sky-700 rounded-md">
+              <button onClick={handleHomeClick} className="flex w-full items-center px-3 py-2 text-white hover:bg-sky-700 rounded-md">
                 <FiHome size={20} className="mr-3" /> Home
-              </Link>
+              </button>
               <Link to="/jobs" className="flex items-center px-3 py-2 text-white hover:bg-sky-700 rounded-md">
                 <FiBriefcase size={20} className="mr-3" /> Vagas
               </Link>
@@ -212,15 +211,18 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
               <button onClick={handleProfileClick} className="flex w-full items-center px-3 py-2 text-white hover:bg-sky-700 rounded-md">
                 <FiUser size={20} className="mr-3" /> Perfil
               </button>
+              {user && (
+                <button onClick={handleLogout} className="flex w-full items-center px-3 py-2 text-white hover:bg-sky-700 rounded-md">
+                  <MdOutlineLogout size={20} className="mr-3" /> Sair
+                </button>
+              )}
               <div className="px-3">
-                 <ThemeToggle />
+                <ThemeToggle />
               </div>
             </div>
           </div>
         )}
       </div>
-
-      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   );
 };

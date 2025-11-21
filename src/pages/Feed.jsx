@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import PostCard from '../components/PostCard';
 import Sidebar from '../components/Sidebar';
-import SidebarUser from '../components/SidebarUser';
+import SidebarLeft from '../components/SidebarLeft';
 import { FiRefreshCw } from 'react-icons/fi';
 
 export default function Feed() {
@@ -14,7 +14,7 @@ export default function Feed() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  
+
   const observerTarget = useRef(null);
 
   // Carregar dados do usuário atual
@@ -52,8 +52,8 @@ export default function Feed() {
 
       if (append) {
         setPosts((prev) => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+          const existingIds = new Set(prev.map((p) => p.id));
+          const uniqueNewPosts = newPosts.filter((p) => !existingIds.has(p.id));
           return [...prev, ...uniqueNewPosts];
         });
       } else {
@@ -126,9 +126,7 @@ export default function Feed() {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
         <aside className="hidden lg:block lg:col-span-1">
-          <div className="sticky top-20">
-            <SidebarUser />
-          </div>
+          <SidebarLeft />
         </aside>
         <main className="col-span-1 lg:col-span-2">
           <div className="flex justify-center items-center py-12">
@@ -137,7 +135,9 @@ export default function Feed() {
           </div>
         </main>
         <aside className="hidden lg:block lg:col-span-1">
-          <Sidebar />
+          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+            <Sidebar />
+          </div>
         </aside>
       </div>
     );
@@ -145,11 +145,9 @@ export default function Feed() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 py-6">
-      {/* Coluna esquerda - SidebarUser (25%) - STICKY FIXO */}
+      {/* Coluna esquerda - SidebarLeft com scroll interno (25%) */}
       <aside className="hidden lg:block lg:col-span-1">
-        <div className="sticky top-20">
-          <SidebarUser />
-        </div>
+        <SidebarLeft />
       </aside>
 
       {/* Coluna central - Feed de Posts (50%) */}
@@ -177,36 +175,29 @@ export default function Feed() {
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-12 text-center shadow-sm">
             <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Nenhuma publicação ainda
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Quando alguém publicar algo, aparecerá aqui.
-            </p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Nenhuma publicação ainda</h3>
+            <p className="text-gray-600 dark:text-gray-400">Quando alguém publicar algo, aparecerá aqui.</p>
           </div>
         ) : (
           <>
             <div className="space-y-6">
               {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  currentUser={currentUser}
-                  onPostDelete={handlePostDeleted}
-                  onLikeUpdate={handleLikeUpdate}
-                />
+                <PostCard key={post.id} post={post} currentUser={currentUser} onPostDelete={handlePostDeleted} onLikeUpdate={handleLikeUpdate} />
               ))}
             </div>
 
             {loadingMore && (
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sky-600"></div>
-                <span className="ml-3 text-sm text-gray-600 dark:text-gray-300">
-                  Carregando mais publicações...
-                </span>
+                <span className="ml-3 text-sm text-gray-600 dark:text-gray-300">Carregando mais publicações...</span>
               </div>
             )}
 
@@ -218,17 +209,15 @@ export default function Feed() {
 
             {!hasMore && posts.length > 0 && (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Você chegou ao fim das publicações 🎉
-                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Você chegou ao fim das publicações 🎉</p>
               </div>
             )}
           </>
         )}
       </main>
 
-      {/* Coluna direita - Sidebar (25%) - STICKY COM SCROLL INVISÍVEL */}
-      <aside className="hidden lg:block lg:col-span-1 relative">
+      {/* Coluna direita - Sidebar com scroll interno (25%) */}
+      <aside className="hidden lg:block lg:col-span-1">
         <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
           <Sidebar />
         </div>
