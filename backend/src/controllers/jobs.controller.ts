@@ -1,18 +1,15 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { z } from 'zod';
-import { AuthedUserCompanyRequest, AuthedRequest } from '../middlewares/auth';
-// CORREÇÃO: Importar os Enums gerados pelo Prisma para tipagem correta
+import { AuthedRequest, AuthedCompanyRequest } from '../middlewares/auth';
 import { EmploymentType, Seniority, LocationType } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || "mude-isto-para-um-segredo-bem-grande";
+const JWT_SECRET = process.env.JWT_SECRET || 'devlink-secret';
 
-// Schema de validação alinhado com os Enums do Prisma
 const jobSchema = z.object({
   title: z.string().min(3, 'Título muito curto'),
   description: z.string().min(10, 'Descrição muito curta'),
-  // CORREÇÃO: Usar z.nativeEnum para validar e tipar corretamente
   employmentType: z.nativeEnum(EmploymentType), 
   seniority: z.nativeEnum(Seniority),
   locationType: z.nativeEnum(LocationType),
@@ -22,51 +19,74 @@ const jobSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-// Schema parcial para atualizações (todos os campos opcionais)
 const jobUpdateSchema = jobSchema.partial();
 
-export async function createJob(req: AuthedUserCompanyRequest, res: Response) {
+// --- FUNÇÕES DE EMPRESA ---
+
+export async function createJob(req: AuthedCompanyRequest, res: Response) {
   try {
-    const ownerUserId = req.company!.ownerUserId;
+    const ownerUserId = req.company!.id;
+    const company = await prisma.company.findFirst({ where: { ownerUserId: ownerUserId } });
 
-    // 1. Identificar a empresa do usuário logado
-    const company = await prisma.company.findFirst({
-      where: { ownerUserId: ownerUserId }
-    });
+    if (!company) return res.status(403).json({ message: 'Perfil de empresa necessário.' });
 
-    if (!company) {
-      return res.status(403).json({ message: 'Você precisa ter um perfil de empresa para publicar vagas.' });
-    }
-
-    // 2. Validar dados com o schema que usa os Enums
     const data = jobSchema.parse(req.body);
-
-    // 3. Criar vaga vinculada à empresa
     const job = await prisma.job.create({
-      data: {
-        ...data,
-        companyId: company.id,
-        // Agora o TypeScript aceita 'data.employmentType' pois é do tipo EmploymentType
-      },
+      data: { ...data, companyId: company.id },
     });
-
     return res.status(201).json({ job });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
-    }
-    console.error('Erro ao criar vaga:', error);
-    return res.status(500).json({ message: 'Erro interno do servidor' });
+    return res.status(500).json({ message: 'Erro interno' });
   }
 }
+
+export async function updateJob(req: AuthedCompanyRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const ownerUserId = req.company!.id;
+    const jobId = BigInt(id);
+    const data = jobUpdateSchema.parse(req.body);
+
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    const company = await prisma.company.findFirst({ where: { ownerUserId: ownerUserId } });
+    if (!company || company.id !== job.companyId) return res.status(403).json({ message: 'Sem permissão' });
+
+    const updated = await prisma.job.update({ where: { id: jobId }, data });
+    return res.json({ job: updated });
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+export async function deleteJob(req: AuthedCompanyRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const ownerUserId = req.company!.id;
+    const jobId = BigInt(id);
+
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    const company = await prisma.company.findFirst({ where: { ownerUserId: ownerUserId } });
+    if (!company || company.id !== job.companyId) return res.status(403).json({ message: 'Sem permissão' });
+
+    await prisma.job.delete({ where: { id: jobId } });
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+// --- FUNÇÕES DE LEITURA E CANDIDATURA ---
 
 export async function listJobs(req: Request, res: Response) {
   try {
     const limit = Number(req.query.limit) || 20;
     const offset = Number(req.query.offset) || 0;
-    const authorId = req.query.authorId;
-
-    // Tenta identificar o usuário logado (opcionalmente) para saber se ele já aplicou
+    const authorId = req.query.authorId; 
+    
     let currentUserId: bigint | null = null;
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
@@ -74,21 +94,21 @@ export async function listJobs(req: Request, res: Response) {
         const token = authHeader.slice(7);
         const payload = jwt.verify(token, JWT_SECRET) as any;
         currentUserId = BigInt(payload.sub);
-      } catch {} // Se token inválido/expirado, apenas segue como visitante
+      } catch {}
     }
 
     const where: any = { isActive: true };
 
-    // ... (Lógica de filtros de authorId mantida igual) ...
     if (authorId === 'me' && currentUserId) {
-        const company = await prisma.company.findFirst({ where: { ownerUserId: currentUserId } });
-        if (!company) return res.json({ jobs: [] });
-        where.companyId = company.id;
-        delete where.isActive;
+      const company = await prisma.company.findFirst({ where: { ownerUserId: currentUserId } });
+      if (!company) return res.json({ jobs: [] });
+      where.companyId = company.id;
+      delete where.isActive;
     } else if (authorId && !isNaN(Number(authorId))) {
-        where.companyId = BigInt(authorId as string);
+      const targetUserCompany = await prisma.company.findFirst({ where: { ownerUserId: BigInt(authorId as string) } });
+      if (targetUserCompany) where.companyId = targetUserCompany.id;
+      else where.companyId = BigInt(authorId as string);
     }
-    // ...
 
     const jobs = await prisma.job.findMany({
       where,
@@ -96,32 +116,94 @@ export async function listJobs(req: Request, res: Response) {
       skip: offset,
       orderBy: { createdAt: 'desc' },
       include: {
-        company: {
-          select: { id: true, name: true, logoUrl: true, ownerUserId: true }
-        },
-        // Inclui aplicações APENAS do usuário atual para verificar status
-        applications: currentUserId ? {
-            where: { userId: currentUserId },
-            select: { id: true, status: true }
-        } : false
+        company: { select: { id: true, name: true, logoUrl: true, ownerUserId: true } },
+        applications: currentUserId ? { where: { userId: currentUserId }, select: { id: true, status: true } } : false
       }
     });
 
-    // Formata a resposta para adicionar o booleano hasApplied
+    // MODIFICADO: Retorna applicationStatus
     const jobsWithStatus = jobs.map(job => {
         const app = job.applications && job.applications[0];
         return {
             ...job,
-            hasApplied: !!app, // true se tiver aplicação
+            hasApplied: !!app,
             applicationId: app?.id || null,
-            applications: undefined // Remove o array para limpar o JSON
+            applicationStatus: app?.status || null, // Novo campo
+            applications: undefined 
         };
     });
 
     return res.json({ jobs: jobsWithStatus });
   } catch (error) {
-    console.error('Erro ao listar vagas:', error);
-    return res.status(500).json({ message: 'Erro interno do servidor' });
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+export async function getJob(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const jobId = BigInt(id);
+
+    let currentUserId: bigint | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7);
+        const payload = jwt.verify(token, JWT_SECRET) as any;
+        currentUserId = BigInt(payload.sub);
+      } catch {}
+    }
+
+    const jobInfo = await prisma.job.findUnique({
+      where: { id: jobId },
+      include: { company: true }
+    });
+
+    if (!jobInfo) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    const isOwner = currentUserId && jobInfo.company.ownerUserId === currentUserId;
+
+    const includeApplications = isOwner 
+      ? {
+          include: { 
+            user: { 
+              select: { 
+                id: true, 
+                email: true, 
+                profile: { select: { displayName: true, avatarUrl: true, headline: true } } 
+              } 
+            } 
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      : (currentUserId ? {
+          where: { userId: currentUserId },
+          select: { id: true, status: true }
+        } : false);
+
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+      include: {
+        company: { select: { id: true, name: true, logoUrl: true, ownerUserId: true } },
+        applications: includeApplications as any
+      }
+    });
+
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    // MODIFICADO: Retorna applicationStatus para o candidato
+    const userApp = !isOwner && Array.isArray(job.applications) ? job.applications[0] : null;
+
+    const responseJob = {
+      ...job,
+      hasApplied: !!userApp,
+      applicationStatus: userApp?.status || null, // Novo campo
+      applications: isOwner ? job.applications : undefined 
+    };
+
+    return res.json({ job: responseJob });
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro interno' });
   }
 }
 
@@ -130,39 +212,17 @@ export async function applyJob(req: AuthedRequest, res: Response) {
         const userId = req.user!.id;
         const jobId = BigInt(req.params.id);
 
-        // Verifica Role
-        if (req.user!.role !== 'USER') {
-            return res.status(403).json({ message: 'Apenas usuários registrados como candidatos podem se aplicar para vagas.' });
-        }
+        if (req.user!.role !== 'USER') return res.status(403).json({ message: 'Apenas candidatos.' });
 
-        // Verifica se vaga existe
-        const job = await prisma.job.findUnique({ where: { id: jobId } });
-        if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+        const existing = await prisma.jobApplication.findFirst({ where: { userId, jobId } });
+        if (existing) return res.status(409).json({ message: 'Já aplicado.' });
 
-        // Verifica se já aplicou
-        const existing = await prisma.jobApplication.findFirst({
-            where: { userId, jobId }
-        });
-
-        if (existing) {
-            return res.status(409).json({ message: 'Você já se candidatou para esta vaga.' });
-        }
-
-        // Cria aplicação
         await prisma.jobApplication.create({
-            data: {
-                userId,
-                jobId,
-                status: 'APPLIED', // Status inicial
-                coverNote: req.body.coverNote || null
-            }
+            data: { userId, jobId, status: 'APPLIED', coverNote: req.body.coverNote || null }
         });
-
-        return res.status(201).json({ message: 'Candidatura realizada com sucesso!' });
-
+        return res.status(201).json({ message: 'Sucesso!' });
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Erro ao aplicar para vaga' });
+        return res.status(500).json({ message: 'Erro ao aplicar' });
     }
 }
 
@@ -171,112 +231,78 @@ export async function cancelJobApplication(req: AuthedRequest, res: Response) {
         const userId = req.user!.id;
         const jobId = BigInt(req.params.id);
 
-        // Deleta a aplicação onde user e job coincidem
-        const deleted = await prisma.jobApplication.deleteMany({
-            where: {
-                userId: userId,
-                jobId: jobId
-            }
-        });
-
-        if (deleted.count === 0) {
-            return res.status(404).json({ message: 'Candidatura não encontrada.' });
+        // MODIFICADO: Impedir cancelamento se já foi REJEITADO (opcional, mas boa prática)
+        const app = await prisma.jobApplication.findFirst({ where: { userId, jobId } });
+        if (app?.status === 'REJECTED') {
+             return res.status(400).json({ message: 'Não é possível cancelar uma candidatura recusada.' });
         }
 
-        return res.status(200).json({ message: 'Candidatura cancelada.' });
+        const deleted = await prisma.jobApplication.deleteMany({ where: { userId, jobId } });
+        if (deleted.count === 0) return res.status(404).json({ message: 'Candidatura não encontrada.' });
 
+        return res.status(200).json({ message: 'Cancelada.' });
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Erro ao cancelar candidatura' });
+        return res.status(500).json({ message: 'Erro ao cancelar' });
     }
 }
 
-export async function getJob(req: Request, res: Response) {
+export async function rejectJobApplication(req: AuthedCompanyRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const { id, applicationId } = req.params;
+    const ownerUserId = req.company!.id;
+    const jobId = BigInt(id);
+    const appId = BigInt(applicationId);
+
+    const job = await prisma.job.findUnique({ where: { id: jobId }, include: { company: true } });
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    const company = await prisma.company.findFirst({ where: { ownerUserId } });
+    if (!company || company.id !== job.companyId) return res.status(403).json({ message: 'Sem permissão' });
+
+    await prisma.jobApplication.update({
+        where: { id: appId },
+        data: { status: 'REJECTED' }
+    });
+
+    return res.json({ message: 'Candidato recusado.' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+
+  
+}
+
+export async function approveJobApplication(req: AuthedCompanyRequest, res: Response) {
+  try {
+    const { id, applicationId } = req.params; 
+    const ownerUserId = req.company!.id;
+    const jobId = BigInt(id);
+    const appId = BigInt(applicationId);
+
+    // 1. Verifica propriedade da vaga
+    const job = await prisma.job.findUnique({
+        where: { id: jobId },
+        include: { company: true }
+    });
+
+    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
+
+    const company = await prisma.company.findFirst({ where: { ownerUserId } });
     
-    const job = await prisma.job.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        company: true
-      }
-    });
-
-    if (!job) {
-      return res.status(404).json({ message: 'Vaga não encontrada' });
+    if (!company || company.id !== job.companyId) {
+        return res.status(403).json({ message: 'Sem permissão' });
     }
 
-    return res.json({ job });
+    // 2. Atualiza status para APPROVED
+    await prisma.jobApplication.update({
+        where: { id: appId },
+        data: { status: 'APPROVED' }
+    });
+
+    return res.json({ message: 'Candidato aprovado com sucesso!' });
+
   } catch (error) {
-    console.error('Erro ao buscar vaga:', error);
-    return res.status(500).json({ message: 'Erro interno do servidor' });
-  }
-}
-
-export async function updateJob(req: AuthedUserCompanyRequest, res: Response) {
-  try {
-    const { id } = req.params;
-    const ownerUserId = req.company!.ownerUserId;
-
-    // Usa o schema parcial para validar apenas campos enviados
-    const data = jobUpdateSchema.parse(req.body);
-
-    const job = await prisma.job.findUnique({
-      where: { id: BigInt(id) },
-    });
-
-    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
-
-    const userCompany = await prisma.company.findFirst({
-      where: { ownerUserId: ownerUserId }
-    });
-
-    // Verifica se a empresa do usuário é a dona da vaga
-    if (!userCompany || userCompany.id !== job.companyId) {
-      return res.status(403).json({ message: 'Sem permissão para editar esta vaga' });
-    }
-
-    const updated = await prisma.job.update({
-      where: { id: BigInt(id) },
-      data // Aqui também o TS aceitará os Enums corretamente
-    });
-
-    return res.json({ job: updated });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
-    }
-    console.error('Erro ao atualizar vaga:', error);
-    return res.status(500).json({ message: 'Erro interno do servidor' });
-  }
-}
-
-export async function deleteJob(req: AuthedUserCompanyRequest, res: Response) {
-  try {
-    const { id } = req.params;
-    const ownerUserId = req.company!.ownerUserId;
-
-    const job = await prisma.job.findUnique({
-      where: { id: BigInt(id) },
-    });
-
-    if (!job) return res.status(404).json({ message: 'Vaga não encontrada' });
-
-    const userCompany = await prisma.company.findFirst({
-      where: { ownerUserId: ownerUserId }
-    });
-
-    if (!userCompany || userCompany.id !== job.companyId) {
-      return res.status(403).json({ message: 'Sem permissão para excluir esta vaga' });
-    }
-
-    await prisma.job.delete({
-      where: { id: BigInt(id) }
-    });
-
-    return res.status(204).send();
-  } catch (error) {
-    console.error('Erro ao excluir vaga:', error);
+    console.error('Erro ao aprovar:', error);
     return res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }

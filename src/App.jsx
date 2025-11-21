@@ -12,6 +12,7 @@ import Connections from './pages/Connections';
 import JobsView from './pages/JobsView';
 import JobsNew from './pages/JobsNew';
 import JobDetails from './pages/JobDetails';
+import JobsOnDemand from './pages/JobsOnDemand';
 
 function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -31,6 +32,7 @@ function App() {
               {/* Páginas da Sidebar */}
               <Route path="/news" element={<News />} />
               <Route path="/jobs" element={<JobsView />} />
+              <Route path="/jobsOnDemand" element={<JobsOnDemand />} />
               <Route path="/jobs/new" element={<JobsNew />} />
               <Route path="/jobs/:id" element={<JobDetails />} />
 
