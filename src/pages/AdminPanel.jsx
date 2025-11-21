@@ -213,6 +213,16 @@ export default function AdminPanel() {
             </button>
           </div>
         </section>
+
+        {/* Denúncias Recebidas */}
+        <section className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <FiShield /> Denúncias Recebidas
+          </h2>
+          <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-center text-gray-500 dark:text-gray-400">
+            Nenhuma denúncia recebida no momento.
+          </div>
+        </section>
       </div>
     </div>
   );

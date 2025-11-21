@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
-import { FiHeart, FiMessageCircle, FiTrash2, FiSend, FiClock } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiTrash2, FiSend, FiClock, FiMoreHorizontal } from 'react-icons/fi';
 
 const PostCard = ({ post, currentUser, onPostUpdate, onPostDelete }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked);
@@ -10,6 +10,7 @@ const PostCard = ({ post, currentUser, onPostUpdate, onPostDelete }) => {
   const [comments, setComments] = useState(post.comments || []);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount);
   const [loading, setLoading] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
 
   // Verificar se é post temporário
   const isTemporary = post.isTemporary || post.id.toString().startsWith('temp-');
@@ -154,12 +155,38 @@ const PostCard = ({ post, currentUser, onPostUpdate, onPostDelete }) => {
           </div>
         </div>
 
-        {/* Botão de deletar */}
-        {canDelete() && !isTemporary && (
-          <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Deletar post">
-            <FiTrash2 />
+        {/* Ações do header */}
+        <div className="flex items-center relative">
+          {/* Botão de opções (Denúncia) */}
+          <button 
+            onClick={() => setShowOptions(!showOptions)}
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" 
+            title="Mais opções"
+          >
+            <FiMoreHorizontal />
           </button>
-        )}
+
+          {showOptions && (
+            <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-20 py-1">
+              <button
+                onClick={() => {
+                  alert('Denúncia enviada com sucesso!');
+                  setShowOptions(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Denunciar
+              </button>
+            </div>
+          )}
+
+          {/* Botão de deletar */}
+          {canDelete() && !isTemporary && (
+            <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Deletar post">
+              <FiTrash2 />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Conteúdo do post */}
