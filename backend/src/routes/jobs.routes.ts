@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createJob, listJobs, getJob, updateJob, deleteJob, applyJob , cancelJobApplication } from '../controllers/jobs.controller';
+import { createJob, listJobs, getJob, updateJob, deleteJob, applyJob , cancelJobApplication, rejectJobApplication, approveJobApplication } from '../controllers/jobs.controller';
 import { requireAuthCompany, requireAuth } from '../middlewares/auth';
 
 const r = Router();
@@ -16,5 +16,9 @@ r.delete('/:id/apply', requireAuth, cancelJobApplication);
 r.post('/', requireAuthCompany, createJob);       // Criar vaga
 r.put('/:id', requireAuthCompany, updateJob);     // Editar vaga
 r.delete('/:id', requireAuthCompany, deleteJob);  // Deletar vaga
+
+r.put('/:id/applications/:applicationId/reject', requireAuthCompany, rejectJobApplication);
+r.put('/:id/applications/:applicationId/approve', requireAuthCompany, approveJobApplication); // NOVA
+
 
 export default r;

@@ -11,7 +11,6 @@ export default function SidebarCompany({ companyId }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Se não tiver ID ainda, não busca
     if (!companyId) return;
 
     let mounted = true;
@@ -20,24 +19,17 @@ export default function SidebarCompany({ companyId }) {
       try {
         setLoading(true);
         
-        // 2. Usamos 'params' para passar a query string.
-        // A rota GET /api/jobs aceita ?authorId=...
-        // Removemos o 'limit' para trazer tudo (ou o padrão do backend)
+        // Definindo limit: 1000 para trazer "todas" as vagas
         const response = await api.get('/api/jobs', { 
           params: { 
             authorId: companyId,
-            // Se quiser forçar "sem limite" e o backend tiver paginação padrão, 
-            // você pode mandar um número alto: limit: 1000 
+            limit: 1000 
           } 
         }); 
         
         if (!mounted) return;
         
-        // O axios/api retorna response.data geralmente, ajuste conforme seu interceptor
-        // Se sua api retorna direto o data, use 'response'. Se retorna { data: ... }, use 'response.data'
-        // Baseado no seu código anterior:
         const data = response; 
-
         const jobsList = Array.isArray(data) ? data : (data.jobs || []);
         setJobs(jobsList); 
         setError('');
@@ -53,7 +45,7 @@ export default function SidebarCompany({ companyId }) {
     fetchJobs();
 
     return () => (mounted = false);
-  }, [companyId]); // 3. Adicionamos companyId na dependência para recarregar se mudar
+  }, [companyId]);
 
   return (
     <div className="space-y-6">
@@ -74,14 +66,14 @@ export default function SidebarCompany({ companyId }) {
           to="/jobs/new" 
           className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition-colors shadow-sm"
         >
-          <FiPlus /> Publicar nova vaga
+          <FiPlus className="w-5 h-5" /> Publicar nova vaga
         </Link>
       </div>
 
       {/* Card de Lista: Vagas Publicadas */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Vagas publicadas</h2>
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Vagas publicadas ({jobs.length})</h2>
         </div>
 
         <div className="p-4">
@@ -128,16 +120,6 @@ export default function SidebarCompany({ companyId }) {
                 </li>
               ))}
             </ul>
-          )}
-
-          {/* Footer com Link para Ver Todas */}
-          {jobs.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-              <Link to="/my-jobs" className="flex items-center justify-between text-sm text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-medium">
-                Ver todas as vagas
-                <FiChevronRight />
-              </Link>
-            </div>
           )}
         </div>
       </div>
