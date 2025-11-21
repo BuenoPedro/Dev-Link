@@ -39,7 +39,7 @@ export default function CompanyProfile() {
   // Função auxiliar para formatar CNPJ
   const formatCNPJ = (value) => {
     if (!value) return '';
-    return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   };
 
   // Função para marcar que usuário está digitando
@@ -52,23 +52,22 @@ export default function CompanyProfile() {
   };
 
   // Carregar posts do usuário
-  const loadUserPosts = async (userId = null) => {
+  const loadUserPosts = async (companyId = null) => {
     try {
       setLoadingPosts(true);
-      let postsData;
+      const postsData = await api.get('/api/posts', { params: { limit: 100 } });
 
-      if (userId) {
-        // Posts de outro usuário/empresa
-        postsData = await api.get('/api/posts', { params: { limit: 20 } });
-        postsData.posts = postsData.posts.filter((post) => post.authorType === 'COMPANY' && post.authorId === userId);
+      let filteredPosts = [];
+
+      if (companyId) {
+        // Posts de outra empresa específica
+        filteredPosts = (postsData.posts || []).filter((post) => post.authorType === 'COMPANY' && String(post.authorId) === String(companyId));
       } else {
-        // Posts próprios
-        postsData = await api.get('/api/posts', { params: { limit: 20 } });
-        // Ajuste aqui: assumindo que se é empresa, o authorType deve ser checado ou o backend filtra
-        postsData.posts = postsData.posts.filter((post) => post.authorId === me?.id);
+        // Posts da própria empresa logada - espera me estar definido
+        filteredPosts = (postsData.posts || []).filter((post) => post.authorType === 'COMPANY' && me?.id && String(post.authorId) === String(me.id));
       }
 
-      setPosts(postsData.posts || []);
+      setPosts(filteredPosts);
     } catch (error) {
       console.error('Erro ao carregar posts:', error);
       setPosts([]);
@@ -97,17 +96,18 @@ export default function CompanyProfile() {
         if (debouncedId) {
           userData = await api.get(`/api/companies/${debouncedId}`);
         } else {
-          // Carrega perfil da própria empresa logada - CORRIGIDO: /api/auth/me
+          // Carrega perfil da própria empresa logada
           userData = await api.get('/api/auth/cme');
         }
 
         if (!mounted) return;
 
         // userData.user aqui é o objeto empresa retornado pelo backend
-        setMe(userData.user);
+        const companyData = userData.user;
+        setMe(companyData);
 
         if (!userIsTypingRef.current) {
-          const data = userData.user || {};
+          const data = companyData || {};
           setForm({
             name: data.name || '',
             description: data.description || '',
@@ -117,19 +117,20 @@ export default function CompanyProfile() {
           });
         }
 
-        if (mounted) {
-          await loadUserPosts(debouncedId);
+        // IMPORTANTE: Carregar posts APÓS atualizar o estado 'me'
+        // Usar o ID diretamente do companyData
+        if (mounted && companyData?.id) {
+          await loadUserPosts(debouncedId || companyData.id);
         }
       } catch (err) {
         if (!mounted) return;
         if (err.message.includes('Too Many Requests') || err.message.includes('429')) {
-          setTimeout(() => { if (mounted) loadProfile(); }, 5000);
+          setTimeout(() => {
+            if (mounted) loadProfile();
+          }, 5000);
           return;
         }
         console.error('Erro ao carregar perfil:', err);
-        if (!debouncedId) {
-           // window.location.href = '/'; // Comentado para evitar redirect em dev se der erro
-        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -157,15 +158,15 @@ export default function CompanyProfile() {
   const saveProfile = async (e) => {
     e?.preventDefault?.();
     if (!canSaveProfile || !isOwnProfile) return;
-    
+
     // Payload ajustado para campos de empresa
     const payload = { ...form };
-    
+
     try {
       // Ajuste a rota conforme seu backend (ex: /api/companies/me ou similar)
       // Como o endpoint de leitura é /me, o de update deve ser coerente
-      const r = await api.put('/api/companies/me', payload); 
-      
+      const r = await api.put('/api/companies/me', payload);
+
       setMe((old) => ({ ...old, ...r.user })); // Atualiza estado local
       setOpen(false);
       userIsTypingRef.current = false;
@@ -204,20 +205,12 @@ export default function CompanyProfile() {
           {/* Informações básicas do perfil */}
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
             <div className="flex items-start gap-4">
-              <img
-                src={me.logoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(me.name)}
-                alt=""
-                className="w-20 h-20 rounded-full object-cover"
-              />
+              <img src={me.logoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(me.name)} alt="" className="w-20 h-20 rounded-full object-cover" />
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{me.name}</h1>
-                
+
                 {/* CNPJ no lugar da Headline */}
-                {me.cnpj && (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-mono mt-1">
-                        CNPJ: {formatCNPJ(me.cnpj)}
-                    </p>
-                )}
+                {me.cnpj && <p className="text-gray-500 dark:text-gray-400 text-sm font-mono mt-1">CNPJ: {formatCNPJ(me.cnpj)}</p>}
 
                 <div className="flex flex-wrap gap-3 mt-2 text-sm">
                   {me.siteUrl && (
@@ -226,9 +219,9 @@ export default function CompanyProfile() {
                     </a>
                   )}
                   {me.foundedAt && (
-                     <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                        <FiCalendar /> Desde {new Date(me.foundedAt).getFullYear()}
-                     </span>
+                    <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                      <FiCalendar /> Desde {new Date(me.foundedAt).getFullYear()}
+                    </span>
                   )}
                 </div>
               </div>
@@ -236,10 +229,7 @@ export default function CompanyProfile() {
               {/* Botões de ação */}
               <div className="ml-auto flex gap-3">
                 {isOwnProfile && (
-                  <button
-                    onClick={() => setOpen(true)}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white transition-colors"
-                  >
+                  <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white transition-colors">
                     <FiEdit2 /> Editar perfil
                   </button>
                 )}
@@ -320,10 +310,9 @@ export default function CompanyProfile() {
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/40" onClick={() => setOpen(false)} />
           <div className="w-full max-w-xl h-full overflow-y-auto bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 p-6">
-            
             <div className="flex items-center gap-2 mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
-               <FiUser className="text-sky-600 text-xl" />
-               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Editar Empresa</h2>
+              <FiUser className="text-sky-600 text-xl" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Editar Empresa</h2>
             </div>
 
             <form onSubmit={saveProfile} className="space-y-4">

@@ -115,25 +115,23 @@ export default function UserProfile() {
     }, 3000);
   };
 
-  // Carregar posts do usuário
+  // Carregar posts do usuário - CORRIGIDO
   const loadUserPosts = async (userId = null) => {
     try {
       setLoadingPosts(true);
-      let postsData;
+      const postsData = await api.get('/api/posts', { params: { limit: 100 } });
+
+      let filteredPosts = [];
 
       if (userId) {
-        // Posts de outro usuário (implementar rota específica no backend)
-        postsData = await api.get('/api/posts', { params: { limit: 20 } });
-        // Filtrar posts do usuário específico
-        postsData.posts = postsData.posts.filter((post) => post.authorType === 'USER' && post.authorId === userId);
+        // Posts de outro usuário específico
+        filteredPosts = (postsData.posts || []).filter((post) => post.authorType === 'USER' && String(post.authorId) === String(userId));
       } else {
-        // Posts próprios
-        postsData = await api.get('/api/posts', { params: { limit: 20 } });
-        // Filtrar só os posts do próprio usuário
-        postsData.posts = postsData.posts.filter((post) => post.authorType === 'USER' && post.authorId === me?.id);
+        // Posts do próprio usuário logado
+        filteredPosts = (postsData.posts || []).filter((post) => post.authorType === 'USER' && String(post.authorId) === String(me?.id));
       }
 
-      setPosts(postsData.posts || []);
+      setPosts(filteredPosts);
     } catch (error) {
       console.error('Erro ao carregar posts:', error);
       setPosts([]);
@@ -190,16 +188,15 @@ export default function UserProfile() {
         setSkills(userData.user?.skills || []);
         setExps(userData.user?.experiences || []);
 
-        // Carregar posts do usuário
+        // Carregar posts do usuário - IMPORTANTE: passar o ID correto
         if (mounted) {
-          await loadUserPosts(debouncedId);
+          await loadUserPosts(debouncedId || userData.user?.id);
         }
       } catch (err) {
         if (!mounted) return;
 
         if (err.message.includes('Too Many Requests') || err.message.includes('429') || err.message.includes('Muitas requisições')) {
           console.warn('Rate limit atingido, aguardando...');
-          // Tentar novamente após 5 segundos
           setTimeout(() => {
             if (mounted) loadProfile();
           }, 5000);
@@ -253,7 +250,7 @@ export default function UserProfile() {
         return next;
       });
       setOpen(false);
-      userIsTypingRef.current = false; // Reset flag após salvar
+      userIsTypingRef.current = false;
     } catch (err) {
       alert(err.message || 'Falha ao salvar perfil');
     }
@@ -414,10 +411,8 @@ export default function UserProfile() {
 
               {/* Botões de ação */}
               <div className="ml-auto flex gap-3">
-                {/* Botão de conectar - só aparece em perfis de outros usuários */}
                 {!isOwnProfile && <ConnectionButton userId={debouncedId} />}
 
-                {/* Botão de editar - só aparece no próprio perfil */}
                 {isOwnProfile && (
                   <button
                     onClick={() => {
@@ -449,7 +444,7 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* Competências (ocultas para ADMIN no próprio perfil) */}
+          {/* Competências */}
           {!isAdmin && (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -505,7 +500,7 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* Experiências (ocultas para ADMIN no próprio perfil) */}
+          {/* Experiências */}
           {!isAdmin && (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -596,14 +591,12 @@ export default function UserProfile() {
               )}
             </div>
 
-            {/* Formulário de criar post */}
             {showCreatePost && isOwnProfile && (
               <div className="mb-6">
                 <CreatePost onPostCreated={handlePostCreated} />
               </div>
             )}
 
-            {/* Lista de posts */}
             <div className="space-y-4">
               {loadingPosts ? (
                 <div className="text-center py-8">
